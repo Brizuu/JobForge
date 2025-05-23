@@ -1,0 +1,15 @@
+FROM postgres:latest
+
+# Ustawiamy domyślną lokalizację, zanim zaczniemy instalację pakietów
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y locales \
+    && sed -i '/pl_PL.UTF-8/s/^# //g' /etc/locale.gen \
+    && locale-gen pl_PL.UTF-8 \
+    && update-locale LANG=pl_PL.UTF-8
+
+# Ponowne ustawienie zmiennych środowiskowych
+ENV LANG=pl_PL.UTF-8
+ENV LC_ALL=pl_PL.UTF-8

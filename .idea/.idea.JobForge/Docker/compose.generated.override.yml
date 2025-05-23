@@ -1,0 +1,22 @@
+# This is a generated file. Not intended for manual editing.
+version: "3.8"
+services:
+  JobForge.api:
+    build:
+      context: "C:\\Users\\Fabia\\RiderProjects\\JobForge"
+      dockerfile: "jobforge/Dockerfile"
+      target: "base"
+    command: []
+    entrypoint:
+    - "dotnet"
+    - "/app/bin/Debug/net9.0/JobForge.dll"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+    image: "jobforge:dev"
+    ports: []
+    volumes:
+    - "C:\\Users\\Fabia\\RiderProjects\\JobForge\\JobForge:/app:rw"
+    - "C:\\Users\\Fabia\\RiderProjects\\JobForge:/src:rw"
+    - "C:\\Users\\Fabia\\.nuget\\packages:/home/app/.nuget/packages"
+    working_dir: "/app"
