@@ -19,15 +19,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<JobOffer> JobOffers { get; set; }
     public DbSet<JobOfferTechnology> JobOfferTechnologies { get; set; }
     
-    public DbSet<JobApplication> JobApplications { get; set; }
     public DbSet<GeneratedCV> GeneratedCVs { get; set; }
     
     public DbSet<PersonalData> PersonalData { get; set; }
+    
+    public DbSet<JobApplication> JobApplications { get; set; }
+
+    public DbSet<FavoriteJobOffer> FavoriteJobOffers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<FavoriteJobOffer>()
+            .HasKey(f => new { f.UserId, f.JobOfferId });
+
+        
         modelBuilder.Entity<PersonalInformation>(entity =>
         {
             entity.HasKey(e => e.Id);

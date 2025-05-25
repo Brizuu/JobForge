@@ -1,4 +1,5 @@
-﻿using JobForge.Data;
+﻿using System.Text.Json;
+using JobForge.Data;
 using JobForge.DbModels;
 using JobForge.Models;
 using Microsoft.EntityFrameworkCore;
@@ -112,59 +113,68 @@ public class JobOfferService : IJobOfferService
     }
 
     
-    public async Task<int> CreateJobApplicationAsync(JobApplicationsDto dto, Guid userId)
+    public async Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId)
     {
-        var personalInfo = new PersonalInformation
-        {
-            UserId = userId,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            PhoneNumber = dto.PhoneNumber,
-            EmailAddress = dto.EmailAddress,
-            LinkedinUrl = dto.LinkedinUrl,
-            Summary = dto.Summary,
-            TechnicalSkills = dto.TechnicalSkills ?? new List<string>(),
-            SoftSkills = dto.SoftSkills ?? new List<string>(),
-            Interests = dto.Interests ?? new List<string>(),
-            Certificates = dto.Certificates ?? new List<string>(),
-            Courses = dto.Courses ?? new List<string>(),
-            WorkExperiences = dto.WorkExperiences?.Select(we => new WorkExperience
-            {
-                UserId = userId,
-                CompanyName = we.CompanyName,
-                EmploymentDateStart = we.EmploymentDateStart,
-                EmploymentDateEnd = we.EmploymentDateEnd,
-                Responsibilities = we.Responsibilities
-            }).ToList() ?? new List<WorkExperience>(),
-            Educations = dto.Educations?.Select(ed => new Education
-            {
-                UserId = userId,
-                SchoolName = ed.SchoolName,
-                Major = ed.Major,
-                EducationDateStart = ed.EducationDateStart,
-                EducationDateEnd = ed.EducationDateEnd
-            }).ToList() ?? new List<Education>(),
-            Languages = dto.Languages?.Select(lang => new Language
-            {
-                UserId = userId,
-                LanguageName = lang.LanguageName,
-                ProficiencyLevel = lang.ProficiencyLevel
-            }).ToList() ?? new List<Language>()
-        };
+        var offer = await _context.JobOffers.FindAsync(dto.JobOfferId);
+        if (offer == null)
+            throw new Exception("Job offer not found.");
 
-        var jobApplication = new JobApplication
+        var cv = await _context.GeneratedCVs.FindAsync(dto.CvId);
+        if (cv == null || cv.UserId != userId)
+            throw new Exception("Invalid CV.");
+
+        var deserializedCv = JsonSerializer.Deserialize<object>(cv.ContentJson);
+
+        var application = new JobApplication
         {
             JobOfferId = dto.JobOfferId,
+            CvId = dto.CvId,
             UserId = userId,
-            PersonalInformation = personalInfo,
+            AppliedAt = DateTime.UtcNow,
             Status = "Pending",
-            ApplicationDate = DateTime.UtcNow
+            JobOffer = offer,
+            DeserializedCv = deserializedCv
         };
 
-        _context.JobApplications.Add(jobApplication);
+        _context.JobApplications.Add(application);
         await _context.SaveChangesAsync();
 
-        return jobApplication.Id;
+        return application;
+    }
+
+    public async Task AddFavoriteAsync(int jobOfferId, Guid userId)
+    {
+        var exists = await _context.FavoriteJobOffers
+            .AnyAsync(f => f.UserId == userId && f.JobOfferId == jobOfferId);
+
+        if (exists) return;
+
+        var favorite = new FavoriteJobOffer
+        {
+            UserId = userId,
+            JobOfferId = jobOfferId,
+            AddedAt = DateTime.UtcNow
+        };
+
+        _context.FavoriteJobOffers.Add(favorite);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<FavoriteJobOfferDetailDto>> GetFavoritesByUserAsync(Guid userId)
+    {
+        return await _context.FavoriteJobOffers
+            .Where(f => f.UserId == userId)
+            .Join(_context.JobOffers,
+                fav => fav.JobOfferId,
+                job => job.Id,
+                (fav, job) => new FavoriteJobOfferDetailDto
+                {
+                    JobOfferId = job.Id,
+                    JobTitle = job.JobTitle,
+                    CompanyName = job.CompanyName,
+                    AddedAt = fav.AddedAt
+                })
+            .ToListAsync();
     }
 
 

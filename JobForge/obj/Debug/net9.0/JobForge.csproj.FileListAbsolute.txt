@@ -146,3 +146,4 @@ C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\JobForge.pdb
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\JobForge.genruntimeconfig.cache
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\ref\JobForge.dll
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\bin\Debug\net9.0\Swashbuckle.AspNetCore.Annotations.dll
+C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\JobForge.sourcelink.json

@@ -69,24 +69,36 @@ public class JobOffersController : ControllerBase
     
     [HttpPost("apply")]
     [Authorize]
-    public async Task<IActionResult> ApplyToJob([FromBody] JobApplicationsDto applicationDto)
+    public async Task<IActionResult> Apply([FromBody] ApplyToJobOfferDto dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-        {
-            return Unauthorized("Invalid or missing user ID in token.");
-        }
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         try
         {
-            var applicationId = await _jobOfferService.CreateJobApplicationAsync(applicationDto, userId);
-            return Ok(new { ApplicationId = applicationId });
+            var application = await _jobOfferService.ApplyToJobOfferAsync(dto, userId);
+            return Ok(application);
         }
         catch (Exception ex)
         {
-            return BadRequest(new { Error = "Failed to apply to job offer", Details = ex.Message });
+            return BadRequest(new { error = ex.Message });
         }
     }
+    
+    [HttpPost("addFavorites")]
+    public async Task<IActionResult> AddFavorite([FromBody] FavoriteJobOfferDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _jobOfferService.AddFavoriteAsync(dto.JobOfferId, userId);
+        return Ok();
+    }
+
+    [HttpGet("getFavorites")]
+    public async Task<IActionResult> GetFavorites()
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var favorites = await _jobOfferService.GetFavoritesByUserAsync(userId);
+        return Ok(favorites);
+    }
+
 
 }

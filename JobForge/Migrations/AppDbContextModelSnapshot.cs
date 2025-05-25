@@ -162,6 +162,22 @@ namespace JobForge.Migrations
                     b.ToTable("Educations");
                 });
 
+            modelBuilder.Entity("JobForge.Models.FavoriteJobOffer", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("JobOfferId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "JobOfferId");
+
+                    b.ToTable("FavoriteJobOffers");
+                });
+
             modelBuilder.Entity("JobForge.Models.GeneratedCV", b =>
                 {
                     b.Property<int>("Id")
@@ -193,13 +209,13 @@ namespace JobForge.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("ApplicationDate")
+                    b.Property<DateTime>("AppliedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("JobOfferId")
+                    b.Property<int>("CvId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("PersonalInformationId")
+                    b.Property<int>("JobOfferId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Status")
@@ -211,7 +227,7 @@ namespace JobForge.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonalInformationId");
+                    b.HasIndex("JobOfferId");
 
                     b.ToTable("JobApplications");
                 });
@@ -650,13 +666,13 @@ namespace JobForge.Migrations
 
             modelBuilder.Entity("JobForge.Models.JobApplication", b =>
                 {
-                    b.HasOne("JobForge.Models.PersonalInformation", "PersonalInformation")
+                    b.HasOne("JobForge.Models.JobOffer", "JobOffer")
                         .WithMany()
-                        .HasForeignKey("PersonalInformationId")
+                        .HasForeignKey("JobOfferId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("PersonalInformation");
+                    b.Navigation("JobOffer");
                 });
 
             modelBuilder.Entity("JobForge.Models.JobOfferTechnology", b =>

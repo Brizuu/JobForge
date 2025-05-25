@@ -11,6 +11,9 @@ public interface IJobOfferService
 
     Task<bool> DeleteJobOfferAsync(int jobOfferId);
 
-    Task<int> CreateJobApplicationAsync(JobApplicationsDto dto, Guid userId);
+    Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId);
+    
+    Task AddFavoriteAsync(int jobOfferId, Guid userId);
+    Task<List<FavoriteJobOfferDetailDto>> GetFavoritesByUserAsync(Guid userId);
 
 }
