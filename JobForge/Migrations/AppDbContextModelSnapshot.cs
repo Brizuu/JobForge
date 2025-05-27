@@ -23,6 +23,70 @@ namespace JobForge.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("JobForge.DbModels.CourseDto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CreatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Courses");
+                });
+
+            modelBuilder.Entity("JobForge.DbModels.CourseSectionDto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("CompletionPercentage")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.ToTable("CourseSections");
+                });
+
             modelBuilder.Entity("JobForge.DbModels.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -160,6 +224,82 @@ namespace JobForge.Migrations
                     b.HasIndex("PersonalInformationId");
 
                     b.ToTable("Educations");
+                });
+
+            modelBuilder.Entity("JobForge.Models.EmploymentContract", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdditionalEmploymentConditions")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompanyAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompanyNip")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ContractDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContractDocumentUrl")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ContractValidFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ContractValidTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Contractor")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmploymentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Salary")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("WorkStartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WorkTimeDimension")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("WorkplaceLocation")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EmploymentContracts");
                 });
 
             modelBuilder.Entity("JobForge.Models.FavoriteJobOffer", b =>
@@ -503,6 +643,9 @@ namespace JobForge.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Verified")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PersonalInformationId");
@@ -642,6 +785,15 @@ namespace JobForge.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("JobForge.DbModels.CourseSectionDto", b =>
+                {
+                    b.HasOne("JobForge.DbModels.CourseDto", null)
+                        .WithMany("Sections")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("JobForge.DbModels.RefreshToken", b =>
                 {
                     b.HasOne("JobForge.Models.ApplicationUser", "User")
@@ -755,6 +907,11 @@ namespace JobForge.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("JobForge.DbModels.CourseDto", b =>
+                {
+                    b.Navigation("Sections");
                 });
 
             modelBuilder.Entity("JobForge.Models.JobOffer", b =>

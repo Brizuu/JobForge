@@ -26,6 +26,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<JobApplication> JobApplications { get; set; }
 
     public DbSet<FavoriteJobOffer> FavoriteJobOffers { get; set; }
+    
+    public DbSet<EmploymentContract> EmploymentContracts { get; set; }
+    
+    public DbSet<CourseDto> Courses { get; set; }
+    public DbSet<CourseSectionDto> CourseSections { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +40,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<FavoriteJobOffer>()
             .HasKey(f => new { f.UserId, f.JobOfferId });
 
+        modelBuilder.Entity<CourseDto>()
+            .HasMany(c => c.Sections)
+            .WithOne()
+            .HasForeignKey(s => s.CourseId);
         
         modelBuilder.Entity<PersonalInformation>(entity =>
         {

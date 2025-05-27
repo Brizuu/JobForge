@@ -7,5 +7,6 @@ public class WorkExperienceDto
     public string CompanyName { get; set; }
     public DateTime EmploymentDateStart { get; set; }
     public DateTime EmploymentDateEnd { get; set; }
+    public string? Verified { get; set; } = String.Empty;
     public string Responsibilities { get; set; }
 }

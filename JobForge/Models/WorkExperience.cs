@@ -10,5 +10,6 @@ public class WorkExperience
     public string Responsibilities { get; set; }
 
     public int PersonalInformationId { get; set; }
+    public string? Verified { get; set; } = String.Empty;
     public PersonalInformation PersonalInformation { get; set; }
 }
