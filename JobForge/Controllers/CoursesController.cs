@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using JobForge.DbModels;
+using JobForge.Models;
 using JobForge.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,15 +20,15 @@ public class CoursesController : ControllerBase
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> CreateCourse([FromBody] CourseDto dto)
+    public async Task<IActionResult> CreateCourse([FromBody] CourseDto courseDto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-            return Unauthorized();
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdString, out var userId))
+            return Unauthorized("Invalid user ID");
 
-        dto.CreatorId = userId;
-        var created = await _service.CreateCourseAsync(dto);
-        return Ok(created);
+        var course = await _service.CreateCourseAsync(userId, courseDto);
+
+        return CreatedAtAction(nameof(GetCourseById), new { courseId = course.Id }, course);
     }
     
     [HttpPut("{courseId}")]
@@ -41,6 +42,7 @@ public class CoursesController : ControllerBase
         return Ok(result);
     }
 
+
     [HttpDelete("{courseId}")]
     [Authorize]
     public async Task<IActionResult> DeleteCourse(int courseId)
@@ -52,7 +54,7 @@ public class CoursesController : ControllerBase
         return NoContent();
     }
     
-    [HttpGet ("getAll")]
+    [HttpGet ("all")]
     public async Task<IActionResult> GetAllCourses([FromQuery] string? category)
     {
         var courses = await _service.GetAllCoursesAsync(category);
@@ -76,7 +78,7 @@ public class CoursesController : ControllerBase
         var result = await _service.AddSectionAsync(courseId, sectionDto);
         return Ok(result);
     }
-    
+
     [HttpPut("sections/{sectionId}")]
     [Authorize]
     public async Task<IActionResult> UpdateSection(int sectionId, [FromBody] CourseSectionDto updatedDto)
@@ -87,6 +89,7 @@ public class CoursesController : ControllerBase
 
         return Ok(result);
     }
+
 
     [HttpDelete("sections/{sectionId}")]
     [Authorize]
@@ -100,17 +103,60 @@ public class CoursesController : ControllerBase
     }
 
 
-    [HttpGet("mine")]
+    [HttpGet("created-mine")]
     [Authorize]
     public async Task<IActionResult> GetMyCourses()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
         if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
             return Unauthorized();
-
+    
         var courses = await _service.GetCoursesByCreatorAsync(userId);
         return Ok(courses);
     }
+    
+    [HttpPost ("user/start-course")]
+    public async Task<IActionResult> AddUserCourse([FromBody] UserCourseCreateDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+        
+        await _service.AddUserCourseAsync(userId, dto);
+        return Ok("Course added.");
+    }
+
+    [HttpPut("user/update-percentage")]
+    public async Task<IActionResult> UpdateCompletionPercentage([FromBody] UserCourseUpdateDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+        await _service.UpdateCompletionPercentageAsync(userId, dto);
+        return Ok("Completion updated.");
+    }
+    
+    [HttpGet("user/{userId}")]
+    public async Task<IActionResult> GetUserCourses()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+        var courses = await _service.GetCoursesByUserIdAsync(userId);
+        return Ok(courses);
+    }
+    
+    [Authorize]
+    [HttpPost("user/add-to-cv/{courseId}")]
+    public async Task<IActionResult> AddCompletedCourseToProfile(int courseId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+        await _service.AddCompletedCourseTitleAsync(userId, courseId);
+        return Ok("If the course was completed, it was added to your profile.");
+    }
+
     
 
 }

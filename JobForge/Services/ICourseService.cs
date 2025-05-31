@@ -1,23 +1,32 @@
 ﻿using JobForge.DbModels;
+using JobForge.Models;
 
 namespace JobForge.Services;
 
 public interface ICourseService
 {
-    Task<CourseDto> CreateCourseAsync(CourseDto dto);
+    Task<Course> CreateCourseAsync(Guid userId, CourseDto dto);
     
-    Task<CourseDto?> UpdateCourseAsync(int courseId, CourseDto updated);
+    Task<Course?> UpdateCourseAsync(int courseId, CourseDto updatedDto);
+
     Task<bool> DeleteCourseAsync(int courseId);
     
-    Task<List<CourseDto>> GetCoursesByCreatorAsync(Guid creatorId);
+    Task<List<Course>> GetCoursesByCreatorAsync(Guid creatorId);
     
-    Task<CourseSectionDto> AddSectionAsync(int courseId, CourseSectionDto section);
-    Task<CourseSectionDto?> UpdateSectionAsync(int sectionId, CourseSectionDto updated);
+    Task<CourseSection> AddSectionAsync(int courseId, CourseSectionDto sectionDto);
+    Task<CourseSection?> UpdateSectionAsync(int sectionId, CourseSectionDto updatedDto);
+
+
     Task<bool> DeleteSectionAsync(int sectionId);
     
-    Task<IEnumerable<CourseDto>> GetAllCoursesAsync(string? category);
+    Task<IEnumerable<Course>> GetAllCoursesAsync(string? category);
 
-    Task<CourseDto?> GetCourseByIdAsync(int courseId);
+    Task<Course?> GetCourseByIdAsync(int courseId);
+
+    Task AddUserCourseAsync(Guid userId, UserCourseCreateDto dto);
+    Task UpdateCompletionPercentageAsync(Guid userId, UserCourseUpdateDto dto);
+    Task<IEnumerable<UserCourseDto>> GetCoursesByUserIdAsync(Guid userId);
+    Task AddCompletedCourseTitleAsync(Guid userId, int courseId);
 
 
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using JobForge.Data;
+using JobForge.Hubs;
 using JobForge.Models;
 using JobForge.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -21,6 +22,8 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddScoped<ICvService, CvService>();
 builder.Services.AddScoped<IJobOfferService, JobOfferService>();
+builder.Services.AddScoped<IContractService, ContractService>();
+builder.Services.AddScoped<ICourseService, CourseService>();
 
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -30,7 +33,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-
+builder.Services.AddSignalR();
 
 // builder.Services.AddScoped<CvService>();
 
@@ -78,6 +81,9 @@ using (var scope = app.Services.CreateScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<ChatHub>("/chathub");
+
 
 app.MapOpenApi();
 app.UseHttpsRedirection();

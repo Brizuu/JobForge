@@ -29,11 +29,11 @@ public class ContractService : IContractService
             WorkTimeDimension = dto.WorkTimeDimension,
             Salary = dto.Salary,
             AdditionalEmploymentConditions = dto.AdditionalEmploymentConditions,
-            WorkStartDate = dto.WorkStartDate,
-            ContractValidFrom = dto.ContractValidFrom,
-            ContractValidTo = dto.ContractValidTo,
+            WorkStartDate = dto.WorkStartDate.ToUniversalTime(),
+            ContractValidFrom = dto.ContractValidFrom?.ToUniversalTime(),
+            ContractValidTo = dto.ContractValidTo?.ToUniversalTime(),
             ContractDocumentUrl = dto.ContractDocumentUrl,
-            CreatedAt = dto.CreatedAt
+            CreatedAt = dto.CreatedAt.ToUniversalTime()
         };
 
         _context.EmploymentContracts.Add(contract);
@@ -63,7 +63,7 @@ public class ContractService : IContractService
             return false;
 
         if (contract.Status == "Accepted" || contract.Status == "Rejected")
-            return false; 
+            return false;
 
         if (status != "Accepted" && status != "Rejected")
             return false;
@@ -73,12 +73,22 @@ public class ContractService : IContractService
 
         if (status == "Accepted")
         {
+            var personalInfo = await _context.PersonalInformations
+                .FirstOrDefaultAsync(pi => pi.UserId == contractorId);
+
+            if (personalInfo == null)
+            {
+                // Możesz też rzucić wyjątek lub zalogować błąd
+                return false;
+            }
+
             var workExperience = new WorkExperience
             {
-                UserId = contractorId,
+                PersonalInformationId = personalInfo.Id,  // klucz obcy
+                UserId = contractorId,                     // GUID użytkownika
                 CompanyName = contract.CompanyName,
                 EmploymentDateStart = contract.WorkStartDate,
-                EmploymentDateEnd = contract.ContractValidTo ?? DateTime.MaxValue, 
+                EmploymentDateEnd = contract.ContractValidTo ?? DateTime.MaxValue,
                 Responsibilities = contract.AdditionalEmploymentConditions ?? string.Empty,
                 Verified = "yes"
             };
@@ -89,6 +99,8 @@ public class ContractService : IContractService
         await _context.SaveChangesAsync();
         return true;
     }
+
+
 
 
     public async Task<EmploymentContract?> GetContractByIdAsync(int contractId)

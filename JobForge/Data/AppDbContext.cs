@@ -29,21 +29,41 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     
     public DbSet<EmploymentContract> EmploymentContracts { get; set; }
     
-    public DbSet<CourseDto> Courses { get; set; }
-    public DbSet<CourseSectionDto> CourseSections { get; set; }
+    public DbSet<Course> Courses { get; set; }
+    public DbSet<CourseSection> CourseSections { get; set; }
+    
+    public DbSet<UserCourse> UserCourses { get; set; }
+    
+    public DbSet<ChatMessage> ChatMessages { get; set; }
+    public DbSet<ChatUserLink> ChatUserLinks { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.Entity<ChatUserLink>()
+            .HasIndex(c => new { c.FirstUser, c.SecoundUser })
+            .IsUnique();
+        
+        modelBuilder.Entity<PersonalInformation>()
+            .Property(p => p.Courses)
+            .HasConversion(
+                v => string.Join(";", v),
+                v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList()
+            );
+        
+        modelBuilder.Entity<UserCourse>()
+            .HasKey(uc => new { uc.UserId, uc.CourseId });
 
         modelBuilder.Entity<FavoriteJobOffer>()
             .HasKey(f => new { f.UserId, f.JobOfferId });
 
-        modelBuilder.Entity<CourseDto>()
+        modelBuilder.Entity<Course>()
             .HasMany(c => c.Sections)
-            .WithOne()
-            .HasForeignKey(s => s.CourseId);
+            .WithOne(s => s.Course)
+            .HasForeignKey(s => s.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<PersonalInformation>(entity =>
         {

@@ -147,3 +147,5 @@ C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\JobForge.genrunt
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\ref\JobForge.dll
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\bin\Debug\net9.0\Swashbuckle.AspNetCore.Annotations.dll
 C:\Users\Fabia\RiderProjects\JobForge\JobForge\obj\Debug\net9.0\JobForge.sourcelink.json
+C:\Users\Fabia\RiderProjects\JobForge\JobForge\bin\Debug\net9.0\Newtonsoft.Json.dll
+C:\Users\Fabia\RiderProjects\JobForge\JobForge\bin\Debug\net9.0\System.Net.WebSockets.WebSocketProtocol.dll

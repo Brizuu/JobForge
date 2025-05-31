@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("JobForge")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed38bb03ee3dfaf43bec0530bf49a75b830510d8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+768c6d35f93550e1fcad8da3e360edd8dbe3b853")]
 [assembly: System.Reflection.AssemblyProductAttribute("JobForge")]
 [assembly: System.Reflection.AssemblyTitleAttribute("JobForge")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
