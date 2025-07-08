@@ -24,6 +24,7 @@ builder.Services.AddScoped<ICvService, CvService>();
 builder.Services.AddScoped<IJobOfferService, JobOfferService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IPublicFacility, PublicFacility>();
 
 
 builder.Services.AddDbContext<AppDbContext>(options =>
