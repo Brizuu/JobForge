@@ -135,6 +135,15 @@ public class PublicFacility : IPublicFacility
             .Where(w => w.UserId == userId)
             .ToListAsync();
 
+        foreach (var experience in workExperiences)
+        {
+            if (experience.PersonalInformation != null)
+            {
+                experience.PersonalInformation.WorkExperiences = null;
+            }
+        }
+
         return workExperiences;
     }
+
 }

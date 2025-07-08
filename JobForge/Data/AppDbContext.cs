@@ -36,6 +36,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<ChatUserLink> ChatUserLinks { get; set; }
+    
+    public DbSet<Internship> Internships { get; set; }
+    public DbSet<InternshipApplication> InternshipApplications { get; set; }
+    
+    public DbSet<Grant> Grants { get; set; }
+    public DbSet<GrantApplication> GrantApplications { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
