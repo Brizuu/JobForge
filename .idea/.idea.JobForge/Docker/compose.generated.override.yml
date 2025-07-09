@@ -9,7 +9,7 @@ services:
     command: []
     entrypoint:
     - "dotnet"
-    - "/app/bin/Debug/net9.0/JobForge.dll"
+    - "/app/bin/Debug/net7.0/JobForge.dll"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
@@ -18,5 +18,5 @@ services:
     volumes:
     - "C:\\Users\\Fabia\\RiderProjects\\JobForge\\JobForge:/app:rw"
     - "C:\\Users\\Fabia\\RiderProjects\\JobForge:/src:rw"
-    - "C:\\Users\\Fabia\\.nuget\\packages:/home/app/.nuget/packages"
+    - "C:\\Users\\Fabia\\.nuget\\packages:/root/.nuget/packages"
     working_dir: "/app"

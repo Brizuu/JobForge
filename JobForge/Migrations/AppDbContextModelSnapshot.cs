@@ -18,7 +18,7 @@ namespace JobForge.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "7.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -62,6 +62,9 @@ namespace JobForge.Migrations
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -663,11 +666,11 @@ namespace JobForge.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.PrimitiveCollection<List<string>>("Certificates")
+                    b.Property<List<string>>("Certificates")
                         .IsRequired()
                         .HasColumnType("text[]");
 
-                    b.PrimitiveCollection<List<string>>("Courses")
+                    b.Property<List<string>>("Courses")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -679,7 +682,7 @@ namespace JobForge.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.PrimitiveCollection<List<string>>("Interests")
+                    b.Property<List<string>>("Interests")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -695,7 +698,7 @@ namespace JobForge.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.PrimitiveCollection<List<string>>("SoftSkills")
+                    b.Property<List<string>>("SoftSkills")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -703,7 +706,7 @@ namespace JobForge.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.PrimitiveCollection<List<string>>("TechnicalSkills")
+                    b.Property<List<string>>("TechnicalSkills")
                         .IsRequired()
                         .HasColumnType("text[]");
 

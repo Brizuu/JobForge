@@ -9,5 +9,6 @@ public class ApplicationUser : IdentityUser
     public string LastName { get; set; }
 
     public Guid? SupervisorId { get; set; }
+    public Guid? CompanyId { get; set; }
     // public int Credits { get; set; } = 0;
 }

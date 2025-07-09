@@ -13,7 +13,7 @@ using Swashbuckle.AspNetCore.Annotations;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+// builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
@@ -27,6 +27,7 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IPublicFacility, PublicFacility>();
 builder.Services.AddScoped<IInternshipService, InternshipService>();
 builder.Services.AddScoped<IGrantService, GrantService>();
+builder.Services.AddScoped<IRaportService, RaportService>();
 
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -67,10 +68,32 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "JobForge",
         Version = "v1",
-        Description = "Dokumentacja API z użyciem Swaggera",
+        Description = "Dokumentacja API z użyciem Swaggera"
     });
     c.EnableAnnotations();
+    
+    var jwtSecurityScheme = new OpenApiSecurityScheme
+    {
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Description = "Wpisz {token}",
 
+        Reference = new OpenApiReference
+        {
+            Id = JwtBearerDefaults.AuthenticationScheme,
+            Type = ReferenceType.SecurityScheme
+        }
+    };
+
+    c.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { jwtSecurityScheme, Array.Empty<string>() }
+    });
 });
 
 var app = builder.Build();
@@ -88,24 +111,21 @@ app.UseAuthorization();
 app.MapHub<ChatHub>("/chathub");
 
 
-app.MapOpenApi();
+// app.MapOpenApi();
 app.UseHttpsRedirection();
-app.UseSwagger();
 app.MapControllers();
+
+
+app.UseSwagger();  
+
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/openapi/v1.json", "API v1");
-        
-    options.OAuthClientId("swagger-client");
-    options.OAuthAppName("JobForge");
-    options.OAuthUsePkce();  
-    options.OAuthScopes("api1");  
-    
-    
-        
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "JobForge API V1");
+    options.RoutePrefix = "swagger"; 
     options.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
 });
 
+app.UseStaticFiles();
 
 
 app.Run();
