@@ -26,7 +26,7 @@ services:
       - POSTGRES_PASSWORD=Velvet2006
       - POSTGRES_DB=jobforge
     volumes:
-      - ./.containers/postgres-db:/var/lib/postgresql/data
+      - jobforge-db-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
