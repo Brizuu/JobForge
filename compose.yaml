@@ -7,7 +7,7 @@ services:
     container_name: jobforge.api
     build:
       context: .
-      dockerfile: jobforge/Dockerfile
+      dockerfile: ./JobForge/JobForge
     ports:
       - "5001:5001"
     environment:
