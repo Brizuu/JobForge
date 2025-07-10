@@ -102,11 +102,11 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
-    // Odpalenie migracji
+    // Odpalenie migracji (synchronizowane)
     context.Database.Migrate();
 
-    
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    // Czekamy aż role się zseedują
     await RoleSeeder.SeedRolesAsync(roleManager);
 }
 
