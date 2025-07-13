@@ -67,22 +67,22 @@ public class JobOffersController : ControllerBase
     }
 
     
-    [HttpPost("apply")]
-    [Authorize]
-    public async Task<IActionResult> Apply([FromBody] ApplyToJobOfferDto dto)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        try
-        {
-            var application = await _jobOfferService.ApplyToJobOfferAsync(dto, userId);
-            return Ok(application);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-    }
+    // [HttpPost("apply")]
+    // [Authorize]
+    // public async Task<IActionResult> Apply([FromBody] ApplyToJobOfferDto dto)
+    // {
+    //     var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    //
+    //     try
+    //     {
+    //         var application = await _jobOfferService.ApplyToJobOfferAsync(dto, userId);
+    //         return Ok(application);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         return BadRequest(new { error = ex.Message });
+    //     }
+    // }
     
     [HttpPost("addFavorites")]
     public async Task<IActionResult> AddFavorite([FromBody] FavoriteJobOfferDto dto)

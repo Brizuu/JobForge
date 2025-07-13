@@ -52,35 +52,35 @@ public class PublicFacility : IPublicFacility
         return (true, null);
     }
     
-    public async Task<object> GetUserCvForSupervisorAsync(Guid userId, Guid supervisorId)
-    {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId.ToString());
-
-        if (user == null)
-            throw new KeyNotFoundException("Użytkownik nie istnieje.");
-
-        if (user.SupervisorId != supervisorId)
-            throw new UnauthorizedAccessException("Nie masz dostępu do tego CV.");
-
-        var personalInfo = await _context.PersonalInformations
-            .Include(p => p.WorkExperiences)
-            .Include(p => p.Educations)
-            .Include(p => p.Languages)
-            .FirstOrDefaultAsync(p => p.UserId == userId);
-
-        if (personalInfo == null)
-            throw new InvalidOperationException("Brak danych osobowych użytkownika.");
-
-        var result = new
-        {
-            PersonalInformation = personalInfo,
-            WorkExperience = personalInfo.WorkExperiences,
-            Education = personalInfo.Educations,
-            Languages = personalInfo.Languages
-        };
-
-        return result;
-    }
+    // public async Task<object> GetUserCvForSupervisorAsync(Guid userId, Guid supervisorId)
+    // {
+    //     var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId.ToString());
+    //
+    //     if (user == null)
+    //         throw new KeyNotFoundException("Użytkownik nie istnieje.");
+    //
+    //     if (user.SupervisorId != supervisorId)
+    //         throw new UnauthorizedAccessException("Nie masz dostępu do tego CV.");
+    //
+    //     var personalInfo = await _context.PersonalInformations
+    //         .Include(p => p.WorkExperiences)
+    //         .Include(p => p.Educations)
+    //         .Include(p => p.Languages)
+    //         .FirstOrDefaultAsync(p => p.UserId == userId);
+    //
+    //     if (personalInfo == null)
+    //         throw new InvalidOperationException("Brak danych osobowych użytkownika.");
+    //
+    //     var result = new
+    //     {
+    //         PersonalInformation = personalInfo,
+    //         WorkExperience = personalInfo.WorkExperiences,
+    //         Education = personalInfo.Educations,
+    //         Languages = personalInfo.Languages
+    //     };
+    //
+    //     return result;
+    // }
     
     public async Task<IEnumerable<JobApplication>> GetUserApplicationsForSupervisorAsync(Guid userId, Guid supervisorId)
     {
@@ -119,31 +119,31 @@ public class PublicFacility : IPublicFacility
         return courses;
     }
     
-    public async Task<IEnumerable<WorkExperience>> GetUserWorkExperiencesForSupervisorAsync(Guid userId, Guid supervisorId)
-    {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == userId.ToString());
-
-        if (user == null)
-            throw new KeyNotFoundException("Użytkownik nie istnieje.");
-
-        if (user.SupervisorId != supervisorId)
-            throw new AuthenticationException("Nie masz dostępu do historii zatrudnienia tego użytkownika.");
-
-        var workExperiences = await _context.WorkExperiences
-            .Include(w => w.PersonalInformation)
-            .Where(w => w.UserId == userId)
-            .ToListAsync();
-
-        foreach (var experience in workExperiences)
-        {
-            if (experience.PersonalInformation != null)
-            {
-                experience.PersonalInformation.WorkExperiences = null;
-            }
-        }
-
-        return workExperiences;
-    }
+    // public async Task<IEnumerable<WorkExperience>> GetUserWorkExperiencesForSupervisorAsync(Guid userId, Guid supervisorId)
+    // {
+    //     var user = await _context.Users
+    //         .FirstOrDefaultAsync(u => u.Id == userId.ToString());
+    //
+    //     if (user == null)
+    //         throw new KeyNotFoundException("Użytkownik nie istnieje.");
+    //
+    //     if (user.SupervisorId != supervisorId)
+    //         throw new AuthenticationException("Nie masz dostępu do historii zatrudnienia tego użytkownika.");
+    //
+    //     var workExperiences = await _context.WorkExperiences
+    //         .Include(w => w.PersonalInformation)
+    //         .Where(w => w.UserId == userId)
+    //         .ToListAsync();
+    //
+    //     foreach (var experience in workExperiences)
+    //     {
+    //         if (experience.PersonalInformation != null)
+    //         {
+    //             experience.PersonalInformation.WorkExperiences = null;
+    //         }
+    //     }
+    //
+    //     return workExperiences;
+    // }
 
 }

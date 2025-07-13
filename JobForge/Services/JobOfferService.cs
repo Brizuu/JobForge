@@ -113,34 +113,34 @@ public class JobOfferService : IJobOfferService
     }
 
     
-    public async Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId)
-    {
-        var offer = await _context.JobOffers.FindAsync(dto.JobOfferId);
-        if (offer == null)
-            throw new Exception("Job offer not found.");
-
-        var cv = await _context.GeneratedCVs.FindAsync(dto.CvId);
-        if (cv == null || cv.UserId != userId)
-            throw new Exception("Invalid CV.");
-
-        var deserializedCv = JsonSerializer.Deserialize<object>(cv.ContentJson);
-
-        var application = new JobApplication
-        {
-            JobOfferId = dto.JobOfferId,
-            CvId = dto.CvId,
-            UserId = userId,
-            AppliedAt = DateTime.UtcNow,
-            Status = "Pending",
-            JobOffer = offer,
-            DeserializedCv = deserializedCv
-        };
-
-        _context.JobApplications.Add(application);
-        await _context.SaveChangesAsync();
-
-        return application;
-    }
+    // public async Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId)
+    // {
+    //     var offer = await _context.JobOffers.FindAsync(dto.JobOfferId);
+    //     if (offer == null)
+    //         throw new Exception("Job offer not found.");
+    //
+    //     var cv = await _context.GeneratedCVs.FindAsync(dto.CvId);
+    //     if (cv == null || cv.UserId != userId)
+    //         throw new Exception("Invalid CV.");
+    //
+    //     var deserializedCv = JsonSerializer.Deserialize<object>(cv.ContentJson);
+    //
+    //     var application = new JobApplication
+    //     {
+    //         JobOfferId = dto.JobOfferId,
+    //         CvId = dto.CvId,
+    //         UserId = userId,
+    //         AppliedAt = DateTime.UtcNow,
+    //         Status = "Pending",
+    //         JobOffer = offer,
+    //         DeserializedCv = deserializedCv
+    //     };
+    //
+    //     _context.JobApplications.Add(application);
+    //     await _context.SaveChangesAsync();
+    //
+    //     return application;
+    // }
 
     public async Task AddFavoriteAsync(int jobOfferId, Guid userId)
     {

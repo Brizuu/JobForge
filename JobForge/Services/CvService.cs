@@ -16,337 +16,672 @@ public class CvService : ICvService
         _context = context;
         _userManager = userManager;
     }
-
-    // public async Task SavePersonalInformationAsync(PersonalInformationDto dto, Guid userId)
-    // {
-    //     var entity = new PersonalInformation
-    //     {
-    //         UserId = userId, 
-    //         FirstName = dto.FirstName,
-    //         LastName = dto.LastName,
-    //         PhoneNumber = dto.PhoneNumber,
-    //         EmailAddress = dto.EmailAddress,
-    //         LinkedinUrl = dto.LinkedinUrl,
-    //         Summary = dto.Summary,
-    //         TechnicalSkills = dto.TechnicalSkills ?? new(),
-    //         SoftSkills = dto.SoftSkills ?? new(),
-    //         Interests = dto.Interests ?? new(),
-    //         Certificates = dto.Certificates ?? new(),
-    //         Courses = dto.Courses ?? new(),
-    //         
-    //         WorkExperiences = dto.WorkExperiences?.Select(w => new WorkExperience
-    //         {
-    //             UserId = userId,
-    //             CompanyName = w.CompanyName,
-    //             EmploymentDateStart = w.EmploymentDateStart.ToUniversalTime(),
-    //             EmploymentDateEnd = w.EmploymentDateEnd.ToUniversalTime(),
-    //             Responsibilities = w.Responsibilities
-    //         }).ToList() ?? new(),
-    //
-    //         Educations = dto.Educations?.Select(e => new Education
-    //         {
-    //             UserId = userId,  
-    //             SchoolName = e.SchoolName,
-    //             Major = e.Major,
-    //             EducationDateStart = e.EducationDateStart.ToUniversalTime(),
-    //             EducationDateEnd = e.EducationDateEnd.ToUniversalTime()
-    //         }).ToList() ?? new(),
-    //
-    //         Languages = dto.Languages?.Select(l => new Language
-    //         {
-    //             UserId = userId, 
-    //             LanguageName = l.LanguageName,
-    //             ProficiencyLevel = l.ProficiencyLevel
-    //         }).ToList() ?? new()
-    //     };
-    //
-    //     _context.PersonalInformations.Add(entity);
-    //     await _context.SaveChangesAsync();
-    // }
     
-   public async Task<PersonalDataDto> AddPersonalDataAsync(PersonalDataDto dto, Guid userId)
+    ////////////////////////////////// Personal informations ////////////////////////////////
+    
+    public async Task AddPersonalInformations(Guid userId, PersonalInformationDto dto)
     {
-        var entity = new PersonalData
+        var exists = await _context.PersonalInformations.AnyAsync(p => p.UserId == userId);
+        if (exists) throw new InvalidOperationException("Personal info already exists.");
+
+        var entity = new PersonalInformation
         {
             UserId = userId,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
-            PhoneNumber = dto.PhoneNumber,
             EmailAddress = dto.EmailAddress,
+            PhoneNumber = dto.PhoneNumber,
             LinkedinUrl = dto.LinkedinUrl,
-            Summary = dto.Summary,
-            TechnicalSkills = dto.TechnicalSkills,
-            SoftSkills = dto.SoftSkills,
-            Interests = dto.Interests,
-            Certificates = dto.Certificates,
-            Courses = dto.Courses
+            Summary = dto.Summary
         };
 
-        _context.PersonalData.Add(entity);
-        await _context.SaveChangesAsync();
-
-        dto.Id = entity.Id;
-        dto.UserId = userId;
-
-        return dto;
-    }
-
-    public async Task<PersonalDataDto> UpdatePersonalDataAsync(int id, PersonalDataDto dto, Guid userId)
-    {
-        var entity = await _context.PersonalData.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
-        if (entity == null)
-            throw new InvalidOperationException("Dane osobowe nie znalezione lub brak dostępu.");
-
-        entity.FirstName = dto.FirstName;
-        entity.LastName = dto.LastName;
-        entity.PhoneNumber = dto.PhoneNumber;
-        entity.EmailAddress = dto.EmailAddress;
-        entity.LinkedinUrl = dto.LinkedinUrl;
-        entity.Summary = dto.Summary;
-        entity.TechnicalSkills = dto.TechnicalSkills;
-        entity.SoftSkills = dto.SoftSkills;
-        entity.Interests = dto.Interests;
-        entity.Certificates = dto.Certificates;
-        entity.Courses = dto.Courses;
-
-        await _context.SaveChangesAsync();
-
-        dto.Id = entity.Id;
-        dto.UserId = entity.UserId;
-
-        return dto;
-    }
-
-    public async Task DeletePersonalDataAsync(int id, Guid userId)
-    {
-        var entity = await _context.PersonalData.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
-        if (entity == null)
-            throw new InvalidOperationException("Dane osobowe nie znalezione lub brak dostępu.");
-
-        _context.PersonalData.Remove(entity);
+        _context.PersonalInformations.Add(entity);
         await _context.SaveChangesAsync();
     }
     
-    public async Task<bool> UserIsPremium(Guid userId)
+    public async Task<PersonalInformationDto?> GetPersonalInformations(Guid userId)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user == null) return false;
-
-        var roles = await _userManager.GetRolesAsync(user);
-        return roles.Contains("Premium");
-    }
-
-    
-    public async Task<GeneratedCV> GenerateCvAsync(Guid userId)
-    {
-        var personalInfo = await _context.PersonalInformations
-            .Include(p => p.WorkExperiences)
-            .Include(p => p.Educations)
-            .Include(p => p.Languages)
+        var entity = await _context.PersonalInformations
             .FirstOrDefaultAsync(p => p.UserId == userId);
 
-        if (personalInfo == null)
-            throw new InvalidOperationException("Brak danych osobowych. Uzupełnij profil przed wygenerowaniem CV.");
+        return entity == null ? null : new PersonalInformationDto
+        {
+            FirstName = entity.FirstName,
+            LastName = entity.LastName,
+            EmailAddress = entity.EmailAddress,
+            PhoneNumber = entity.PhoneNumber,
+            LinkedinUrl = entity.LinkedinUrl,
+            Summary = entity.Summary
+        };
+    }
+    
+    public async Task UpdatePersonalInformations(Guid userId, PersonalInformationEditDto dto)
+    {
+        var entity = await _context.PersonalInformations
+            .FirstOrDefaultAsync(p => p.UserId == userId);
 
-        if (!await UserIsPremium(userId))
-            throw new UnauthorizedAccessException("Tylko użytkownicy Premium mogą generować CV.");
+        if (entity == null) throw new KeyNotFoundException("Personal info not found.");
 
+        entity.FirstName = dto.FirstName ?? entity.FirstName;
+        entity.LastName = dto.LastName ?? entity.LastName;
+        entity.EmailAddress = dto.EmailAddress ?? entity.EmailAddress;
+        entity.PhoneNumber = dto.PhoneNumber ?? entity.PhoneNumber;
+        entity.LinkedinUrl = dto.LinkedinUrl ?? entity.LinkedinUrl;
+        entity.Summary = dto.Summary ?? entity.Summary;
+
+        await _context.SaveChangesAsync();
+    }
+    
+    ////////////////////////////////// Work Experience ////////////////////////////////
+    
+    public async Task AddWorkExperience(Guid userId, WorkExperienceDto dto)
+    {
+        var exists = await _context.WorkExperiences.AnyAsync(x =>
+            x.UserId == userId &&
+            x.CompanyName == dto.CompanyName &&
+            x.PositionTitle == dto.PositionTitle);
+
+        if (exists)
+            throw new InvalidOperationException("To doświadczenie już istnieje.");
+
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
         
-        var result = new
+        var entity = new WorkExperience
         {
-            PersonalInformation = personalInfo,
-            WorkExperience = personalInfo.WorkExperiences,
-            Education = personalInfo.Educations,
-            Languages = personalInfo.Languages
-        };
-
-        var contentJson = JsonSerializer.Serialize(result);
-
-        var cv = new GeneratedCV
-        {
+            Id = Guid.NewGuid(),
             UserId = userId,
-            ContentJson = contentJson
-        };
-
-        _context.GeneratedCVs.Add(cv);
-        await _context.SaveChangesAsync();
-
-        return cv;
-    }
-
-    
-    // -------------------- WorkExperience --------------------
-
-    public async Task AddWorkExperienceAsync(WorkExperienceDto dto, Guid userId)
-    {
-        // Sprawdzenie, czy istnieje PersonalInformation dla tego użytkownika
-        var personalInformation = await _context.PersonalInformations
-            .FirstOrDefaultAsync(p => p.UserId == userId);
-
-        if (personalInformation == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono danych osobowych dla tego użytkownika.");
-        }
-
-        // Tworzenie nowego doświadczenia zawodowego
-        var experience = new WorkExperience
-        {
-            UserId = userId,
+            GeneratedCVId = generatedCv.Id,
             CompanyName = dto.CompanyName,
-            EmploymentDateStart = dto.EmploymentDateStart.ToUniversalTime(),
-            EmploymentDateEnd = dto.EmploymentDateEnd.ToUniversalTime(),
+            PositionTitle = dto.PositionTitle,
+            Location = dto.Location,
+            EmploymentType = dto.EmploymentType,
+            EmploymentDateStart = dto.EmploymentDateStart,
+            EmploymentDateEnd = dto.EmploymentDateEnd,
             Responsibilities = dto.Responsibilities,
-            PersonalInformationId = personalInformation.Id // Przypisanie odpowiedniego PersonalInformationId
+            TechnologiesUsed = dto.TechnologiesUsed
         };
 
-        // Dodanie doświadczenia zawodowego do bazy
-        _context.WorkExperiences.Add(experience);
+        _context.WorkExperiences.Add(entity);
         await _context.SaveChangesAsync();
     }
     
-    public async Task UpdateWorkExperienceAsync(int id, WorkExperienceDto dto, Guid userId)
+    public async Task<IEnumerable<WorkExperienceEditDto>> GetWorkExperienceAsync(Guid userId)
     {
-        var workExperience = await _context.WorkExperiences
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId);
+        return await _context.WorkExperiences
+            .Where(x => x.UserId == userId)
+            .Select(x => new WorkExperienceEditDto
+            {
+                Id = x.Id,
+                CompanyName = x.CompanyName,
+                PositionTitle = x.PositionTitle,
+                Location = x.Location,
+                EmploymentType = x.EmploymentType,
+                EmploymentDateStart = x.EmploymentDateStart,
+                EmploymentDateEnd = x.EmploymentDateEnd,
+                Responsibilities = x.Responsibilities,
+                TechnologiesUsed = x.TechnologiesUsed
+            }).ToListAsync();
+    }
 
-        if (workExperience == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono doświadczenia zawodowego.");
-        }
+    
+    public async Task<bool> UpdateWorkExperience(Guid userId, Guid workExperienceId, WorkExperienceEditDto dto)
+    {
+        var workExp = await _context.WorkExperiences
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.Id == workExperienceId);
 
-        // Aktualizacja danych doświadczenia
-        workExperience.CompanyName = dto.CompanyName;
-        workExperience.EmploymentDateStart = dto.EmploymentDateStart.ToUniversalTime();
-        workExperience.EmploymentDateEnd = dto.EmploymentDateEnd.ToUniversalTime();
-        workExperience.Responsibilities = dto.Responsibilities;
+        if (workExp == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(dto.CompanyName))
+            workExp.CompanyName = dto.CompanyName;
+
+        if (!string.IsNullOrEmpty(dto.PositionTitle))
+            workExp.PositionTitle = dto.PositionTitle;
+
+        if (!string.IsNullOrEmpty(dto.Location))
+            workExp.Location = dto.Location;
+
+        if (!string.IsNullOrEmpty(dto.EmploymentType))
+            workExp.EmploymentType = dto.EmploymentType;
+
+        if (dto.EmploymentDateStart.HasValue)
+            workExp.EmploymentDateStart = dto.EmploymentDateStart.Value;
+
+        if (dto.EmploymentDateEnd.HasValue)
+            workExp.EmploymentDateEnd = dto.EmploymentDateEnd.Value;
+
+        if (!string.IsNullOrEmpty(dto.Responsibilities))
+            workExp.Responsibilities = dto.Responsibilities;
+
+        if (!string.IsNullOrEmpty(dto.TechnologiesUsed))
+            workExp.TechnologiesUsed = dto.TechnologiesUsed;
 
         await _context.SaveChangesAsync();
+        return true;
     }
 
-
-
-    public async Task RemoveWorkExperienceAsync(int id, Guid userId)
+    public async Task DeleteWorkExperience(Guid userId, Guid workExperienceId)
     {
-        var entity = await _context.WorkExperiences
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
-        if (entity != null)
-        {
-            _context.WorkExperiences.Remove(entity);
-            await _context.SaveChangesAsync();
-        }
-    }
+        var workExp = await _context.WorkExperiences
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.Id == workExperienceId);
 
-    // -------------------- Education --------------------
+        if (workExp == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
 
-    public async Task AddEducationAsync(EducationDto dto, Guid userId)
-    {
-        // Sprawdzenie, czy istnieje PersonalInformation dla tego użytkownika
-        var personalInformation = await _context.PersonalInformations
-            .FirstOrDefaultAsync(p => p.UserId == userId);
-
-        if (personalInformation == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono danych osobowych dla tego użytkownika.");
-        }
-
-        // Tworzenie nowego wpisu edukacji
-        var education = new Education
-        {
-            UserId = userId,
-            SchoolName = dto.SchoolName,
-            Major = dto.Major,
-            EducationDateStart = dto.EducationDateStart.ToUniversalTime(),
-            EducationDateEnd = dto.EducationDateEnd.ToUniversalTime(),
-            PersonalInformationId = personalInformation.Id // Przypisanie odpowiedniego PersonalInformationId
-        };
-
-        // Dodanie edukacji do bazy
-        _context.Educations.Add(education);
+        _context.WorkExperiences.Remove(workExp);
         await _context.SaveChangesAsync();
     }
     
-    public async Task UpdateEducationAsync(int id, EducationDto dto, Guid userId)
+    ////////////////////////////////// Languages ////////////////////////////////
+    
+    public async Task AddLanguage(Guid userId, LanguageDto dto)
     {
-        var education = await _context.Educations
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+        var exists = await _context.Languages.AnyAsync(x =>
+            x.UserId == userId && x.LanguageName.ToLower() == dto.LanguageName.ToLower());
 
-        if (education == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono edukacji.");
-        }
+        if (exists)
+            throw new InvalidOperationException("Język już istnieje.");
 
-        // Aktualizacja danych edukacji
-        education.SchoolName = dto.SchoolName;
-        education.Major = dto.Major;
-        education.EducationDateStart = dto.EducationDateStart.ToUniversalTime();
-        education.EducationDateEnd = dto.EducationDateEnd.ToUniversalTime();
-
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task RemoveEducationAsync(int id, Guid userId)
-    {
-        var entity = await _context.Educations
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
-        if (entity != null)
-        {
-            _context.Educations.Remove(entity);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    // -------------------- Language --------------------
-
-    public async Task AddLanguageAsync(LanguageDto dto, Guid userId)
-    {
-        // Sprawdzenie, czy istnieje PersonalInformation dla tego użytkownika
-        var personalInformation = await _context.PersonalInformations
-            .FirstOrDefaultAsync(p => p.UserId == userId);
-
-        if (personalInformation == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono danych osobowych dla tego użytkownika.");
-        }
-
-        // Tworzenie nowego wpisu językowego
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+        
         var language = new Language
         {
+            Id = Guid.NewGuid(),
             UserId = userId,
+            GeneratedCVId = generatedCv.Id,
             LanguageName = dto.LanguageName,
             ProficiencyLevel = dto.ProficiencyLevel,
-            PersonalInformationId = personalInformation.Id // Przypisanie odpowiedniego PersonalInformationId
+            AdditionalDescription = dto.AdditionalDescription
         };
 
-        // Dodanie języka do bazy
         _context.Languages.Add(language);
         await _context.SaveChangesAsync();
     }
-    
-    public async Task UpdateLanguageAsync(int id, LanguageDto dto, Guid userId)
+
+    public async Task<List<LanguageEditDto>> GetUserLanguages(Guid userId)
+    {
+        return await _context.Languages
+            .Where(x => x.UserId == userId)
+            .Select(x => new LanguageEditDto
+            {
+                Id = x.Id,
+                LanguageName = x.LanguageName,
+                ProficiencyLevel = x.ProficiencyLevel,
+                AdditionalDescription = x.AdditionalDescription
+            })
+            .ToListAsync();
+    }
+
+
+
+    public async Task<bool> UpdateLanguage(Guid userId, Guid languageId, LanguageEditDto dto)
     {
         var language = await _context.Languages
-            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId);
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.Id == languageId);
 
         if (language == null)
-        {
-            throw new InvalidOperationException("Nie znaleziono języka.");
-        }
+            return false;
 
-        // Aktualizacja danych języka
-        language.LanguageName = dto.LanguageName;
-        language.ProficiencyLevel = dto.ProficiencyLevel;
+        if (dto.ProficiencyLevel.HasValue)
+            language.ProficiencyLevel = dto.ProficiencyLevel.Value;
+
+        if (dto.AdditionalDescription != null)
+            language.AdditionalDescription = dto.AdditionalDescription;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+    
+    public async Task DeleteLanguage(Guid userId, Guid languageId)
+    {
+        var language = await _context.Languages
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.Id == languageId);
+
+        if (language == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+
+        _context.Languages.Remove(language);
+        await _context.SaveChangesAsync();
+    }
+
+    ////////////////////////////////// Soft Skills ////////////////////////////////
+    
+    public async Task<SoftSkills> AddSoftSkills(Guid userId, SoftSkillsDto dto)
+    {
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+        
+        var newSkill = new SoftSkills
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            GeneratedCVId = generatedCv.Id,
+            SkillName = dto.SkillName,
+            ProficiencyLevel = dto.ProficiencyLevel,
+            AdditionalDescription = dto.AdditionalDescription
+        };
+
+        _context.SoftSkills.Add(newSkill);
+        await _context.SaveChangesAsync();
+
+        return newSkill;
+    }
+    
+    public async Task<List<SoftSkillsEditDto>> GetSoftSkills(Guid userId)
+    {
+        return await _context.SoftSkills
+            .Where(s => s.UserId == userId)
+            .Select(s => new SoftSkillsEditDto
+            {
+                Id = s.Id,
+                SkillName = s.SkillName,
+                ProficiencyLevel = s.ProficiencyLevel,
+                AdditionalDescription = s.AdditionalDescription
+            })
+            .ToListAsync();
+    }
+
+
+    public async Task<bool> UpdateSoftSkills(Guid userId, Guid skillId, SoftSkillsEditDto dto)
+    {
+        var skill = await _context.SoftSkills
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Id == skillId);
+
+        if (skill == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(dto.SkillName))
+            skill.SkillName = dto.SkillName;
+
+        if (dto.ProficiencyLevel.HasValue)
+            skill.ProficiencyLevel = dto.ProficiencyLevel;
+
+        if (!string.IsNullOrEmpty(dto.AdditionalDescription))
+            skill.AdditionalDescription = dto.AdditionalDescription;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+    
+    public async Task DeleteSoftSkills(Guid userId, Guid skillId)
+    {
+        var skill = await _context.SoftSkills
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Id == skillId);
+
+        if (skill == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+
+        _context.SoftSkills.Remove(skill);
+        await _context.SaveChangesAsync();
+    }
+    
+    ////////////////////////////////// Technical Skills ////////////////////////////////
+    
+    public async Task<TechnicalSkills> AddTechnicalSkill(Guid userId, TechnicalSkillsDto dto)
+    {
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+        
+        var newSkill = new TechnicalSkills
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            GeneratedCVId = generatedCv.Id,
+            SkillName = dto.SkillName,
+            ProficiencyLevel = dto.ProficiencyLevel,
+            AdditionalDescription = dto.AdditionalDescription
+        };
+
+        _context.TechnicalSkills.Add(newSkill);
+        await _context.SaveChangesAsync();
+
+        return newSkill;
+    }
+
+    public async Task<List<TechnicalSkillsEditDto>> GetTechnicalSkills(Guid userId)
+    {
+        return await _context.TechnicalSkills
+            .Where(s => s.UserId == userId)
+            .Select(s => new TechnicalSkillsEditDto
+            {
+                Id = s.Id,
+                SkillName = s.SkillName,
+                ProficiencyLevel = s.ProficiencyLevel,
+                AdditionalDescription = s.AdditionalDescription
+            })
+            .ToListAsync();
+    }
+
+
+    public async Task<bool> UpdateTechnicalSkill(Guid userId, Guid skillId, TechnicalSkillsEditDto dto)
+    {
+        var skill = await _context.TechnicalSkills
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Id == skillId);
+
+        if (skill == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(dto.SkillName))
+            skill.SkillName = dto.SkillName;
+
+        if (dto.ProficiencyLevel.HasValue)
+            skill.ProficiencyLevel = dto.ProficiencyLevel.Value;
+
+        if (!string.IsNullOrEmpty(dto.AdditionalDescription))
+            skill.AdditionalDescription = dto.AdditionalDescription;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+    
+    public async Task DeleteTechnicalSkill(Guid userId, Guid skillId)
+    {
+        var skill = await _context.TechnicalSkills
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Id == skillId);
+
+        if (skill == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+
+        _context.TechnicalSkills.Remove(skill);
+        await _context.SaveChangesAsync();
+    }
+    
+    ////////////////////////////////// Interests ////////////////////////////////
+    
+    public async Task<Interests> AddInterest(Guid userId, InterestsDto dto)
+    {
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+        
+        var newInterest = new Interests
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            GeneratedCVId = generatedCv.Id,
+            InterestName = dto.InterestName,
+            ProficiencyLevel = dto.ProficiencyLevel,
+            AdditionalDescription = dto.AdditionalDescription
+        };
+
+        _context.Interests.Add(newInterest);
+        await _context.SaveChangesAsync();
+
+        return newInterest;
+    }
+
+    public async Task<List<InterestsEditDto>> GetInterests(Guid userId)
+    {
+        return await _context.Interests
+            .Where(i => i.UserId == userId)
+            .Select(i => new InterestsEditDto
+            {
+                Id = i.Id,
+                InterestName = i.InterestName,
+                ProficiencyLevel = i.ProficiencyLevel,
+                AdditionalDescription = i.AdditionalDescription
+            })
+            .ToListAsync();
+    }
+
+
+    public async Task<bool> UpdateInterest(Guid userId, Guid interestId, InterestsEditDto dto)
+    {
+        var interest = await _context.Interests
+            .FirstOrDefaultAsync(i => i.UserId == userId && i.Id == interestId);
+
+        if (interest == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(dto.InterestName))
+            interest.InterestName = dto.InterestName;
+
+        if (dto.ProficiencyLevel.HasValue)
+            interest.ProficiencyLevel = dto.ProficiencyLevel;
+
+        if (!string.IsNullOrEmpty(dto.AdditionalDescription))
+            interest.AdditionalDescription = dto.AdditionalDescription;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+    
+    public async Task DeleteInterest(Guid userId, Guid interestId)
+    {
+        var interest = await _context.Interests
+            .FirstOrDefaultAsync(i => i.UserId == userId && i.Id == interestId);
+
+        if (interest == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+
+        _context.Interests.Remove(interest);
+        await _context.SaveChangesAsync();
+    }
+
+    
+    ////////////////////////////////// User Courses ////////////////////////////////
+    
+    public async Task AddUserCourse(Guid userId, UserCourseDto dto)
+    {
+        var generatedCv = await _context.GeneratedCVs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+        
+        var course = new UserCourse
+        {
+            UserId = userId,
+            Title = dto.Title,
+            GeneratedCVId = generatedCv.Id,
+            Description = dto.Description,
+            Institution = dto.Institution,
+            CompletionTime = dto.CompletionTime,
+            Category = dto.Category,
+            CompletionPercentage = dto.CompletionPercentage
+        };
+
+        _context.UserCourses.Add(course);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<UserCourseEditDto>> GetUserCourses(Guid userId)
+    {
+        return await _context.UserCourses
+            .Where(x => x.UserId == userId)
+            .Select(x => new UserCourseEditDto
+            {
+                Id = x.CourseId,
+                Title = x.Title,
+                Description = x.Description,
+                Institution = x.Institution,
+                CompletionTime = x.CompletionTime,
+                Category = x.Category,
+                CompletionPercentage = x.CompletionPercentage
+            })
+            .ToListAsync();
+    }
+
+
+
+    public async Task UpdateUserCourse(Guid userId, Guid courseId, UserCourseEditDto dto)
+    {
+        var course = await _context.UserCourses
+            .FirstOrDefaultAsync(x => x.CourseId == courseId && x.UserId == userId);
+
+        if (course == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+        
+        if (!string.IsNullOrWhiteSpace(dto.Title)) 
+            course.Title = dto.Title;
+
+        if (!string.IsNullOrWhiteSpace(dto.Description)) 
+            course.Description = dto.Description;
+
+        if (!string.IsNullOrWhiteSpace(dto.Institution)) 
+            course.Institution = dto.Institution;
+
+        if (dto.CompletionTime.HasValue) 
+            course.CompletionTime = dto.CompletionTime;
+
+        if (!string.IsNullOrWhiteSpace(dto.Category)) 
+            course.Category = dto.Category;
+
+        if (dto.CompletionPercentage.HasValue) 
+            course.CompletionPercentage = dto.CompletionPercentage;
 
         await _context.SaveChangesAsync();
     }
 
-    public async Task RemoveLanguageAsync(int id, Guid userId)
+    
+    public async Task DeleteUserCourse(Guid userId, Guid courseId)
     {
-        var entity = await _context.Languages
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
-        if (entity != null)
-        {
-            _context.Languages.Remove(entity);
-            await _context.SaveChangesAsync();
-        }
+        var course = await _context.UserCourses
+            .FirstOrDefaultAsync(c => c.CourseId == courseId && c.UserId == userId);
+
+        if (course == null)
+            throw new KeyNotFoundException("Course not found or does not belong to the user.");
+
+        _context.UserCourses.Remove(course);
+        await _context.SaveChangesAsync();
     }
+    
+    ////////////////////////////////// CV Generator ////////////////////////////////
+
+    public async Task<GeneratedCV> GenerateCvAsync(Guid userId)
+    {
+        var personalInfo = await _context.PersonalInformations.FirstOrDefaultAsync(p => p.UserId == userId);
+        if (personalInfo == null) 
+            throw new KeyNotFoundException("Personal information not found.");
+
+        var educations = await _context.Educations.Where(e => e.UserId == userId).ToListAsync();
+        var workExperiences = await _context.WorkExperiences.Where(w => w.UserId == userId).ToListAsync();
+        var languages = await _context.Languages.Where(l => l.UserId == userId).ToListAsync();
+        var softSkills = await _context.SoftSkills.Where(s => s.UserId == userId).ToListAsync();
+        var technicalSkills = await _context.TechnicalSkills.Where(t => t.UserId == userId).ToListAsync();
+        var interests = await _context.Interests.Where(i => i.UserId == userId).ToListAsync();
+        var userCourses = await _context.UserCourses.Where(c => c.UserId == userId).ToListAsync();
+
+        // Stwórz obiekt GeneratedCV i wypełnij danymi
+        var generatedCv = new GeneratedCV
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            FirstName = personalInfo.FirstName,
+            LastName = personalInfo.LastName,
+            PhoneNumber = personalInfo.PhoneNumber,
+            EmailAddress = personalInfo.EmailAddress ?? string.Empty,
+            LinkedinUrl = personalInfo.LinkedinUrl,
+            Summary = personalInfo.Summary,
+            Educations = educations,
+            WorkExperiences = workExperiences,
+            Languages = languages,
+            SoftSkills = softSkills,
+            TechnicalSkills = technicalSkills,
+            Interests = interests,
+            UserCourse = userCourses,
+            GenerationDate = DateTime.UtcNow
+        };
+        
+
+        // Sprawdź czy CV dla usera już istnieje, usuń jeśli tak
+        var existingCv = await _context.GeneratedCVs.FirstOrDefaultAsync(cv => cv.UserId == userId);
+        if (existingCv != null)
+        {
+            _context.GeneratedCVs.Remove(existingCv);
+        }
+
+        _context.GeneratedCVs.Add(generatedCv);
+        await _context.SaveChangesAsync();
+
+        return generatedCv;
+    }
+
+    public async Task<GeneratedCVDto?> GetGeneratedCvAsync(Guid userId)
+    {
+        var cv = await _context.GeneratedCVs
+            .Include(cv => cv.Educations)
+            .Include(cv => cv.WorkExperiences)
+            .Include(cv => cv.Languages)
+            .Include(cv => cv.SoftSkills)
+            .Include(cv => cv.TechnicalSkills)
+            .Include(cv => cv.Interests)
+            .Include(cv => cv.UserCourse)
+            .FirstOrDefaultAsync(cv => cv.UserId == userId);
+
+        if (cv == null)
+            return null;
+
+        return new GeneratedCVDto
+        {
+            FirstName = cv.FirstName,
+            LastName = cv.LastName,
+            PhoneNumber = cv.PhoneNumber,
+            EmailAddress = cv.EmailAddress,
+            LinkedinUrl = cv.LinkedinUrl,
+            Summary = cv.Summary,
+            Educations = cv.Educations.Select(e => new EducationDto
+            {
+                SchoolName = e.SchoolName,
+                Specialization = e.Specialization,
+                EducationDateStart = e.EducationDateStart,
+                EducationDateEnd = e.EducationDateEnd
+            }).ToList(),
+            WorkExperiences = cv.WorkExperiences.Select(w => new WorkExperienceDto
+            {
+                CompanyName = w.CompanyName,
+                PositionTitle = w.PositionTitle,
+                Location = w.Location,
+                EmploymentType = w.EmploymentType,
+                EmploymentDateStart = w.EmploymentDateStart,
+                EmploymentDateEnd = w.EmploymentDateEnd,
+                Responsibilities = w.Responsibilities,
+                TechnologiesUsed = w.TechnologiesUsed
+            }).ToList(),
+            Languages = cv.Languages.Select(l => new LanguageDto
+            {
+                LanguageName = l.LanguageName,
+                ProficiencyLevel = l.ProficiencyLevel,
+                AdditionalDescription = l.AdditionalDescription
+            }).ToList(),
+            SoftSkills = cv.SoftSkills.Select(s => new SoftSkillsDto
+            {
+                SkillName = s.SkillName,
+                ProficiencyLevel = s.ProficiencyLevel,
+                AdditionalDescription = s.AdditionalDescription
+            }).ToList(),
+            TechnicalSkills = cv.TechnicalSkills.Select(t => new TechnicalSkillsDto
+            {
+                SkillName = t.SkillName,
+                ProficiencyLevel = t.ProficiencyLevel,
+                AdditionalDescription = t.AdditionalDescription
+            }).ToList(),
+            Interests = cv.Interests.Select(i => new InterestsDto
+            {
+                InterestName = i.InterestName,
+                ProficiencyLevel = i.ProficiencyLevel,
+                AdditionalDescription = i.AdditionalDescription
+            }).ToList(),
+            UserCourse = cv.UserCourse.Select(uc => new UserCourseVerifiedDto
+            {
+                CourseId = uc.CourseId,
+                Title = uc.Title,
+                Description = uc.Description,
+                Institution = uc.Institution,
+                CompletionTime = uc.CompletionTime,
+                Category = uc.Category,
+                isCompleted = uc.isCompleted,
+                CompletionPercentage = uc.CompletionPercentage
+            }).ToList()
+
+        };
+    }
+
 }

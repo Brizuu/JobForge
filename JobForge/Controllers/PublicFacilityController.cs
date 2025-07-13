@@ -31,30 +31,30 @@ public class PublicFacilityController : ControllerBase
         return Ok(new { message = "User registered with supervisor and assigned to 'free' role" });
     }
     
-    [HttpGet("cv/{userId}")]
-    [Authorize(Roles = "PublicFacility")]
-    public async Task<IActionResult> GetUserCv(Guid userId)
-    {
-        var supervisorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-        try
-        {
-            var cvData = await _context.GetUserCvForSupervisorAsync(userId, supervisorId);
-            return Ok(cvData);
-        }
-        catch (UnauthorizedAccessException e)
-        {
-            return Forbid(e.Message);
-        }
-        catch (InvalidOperationException e)
-        {
-            return BadRequest(new { error = e.Message });
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(new { error = e.Message });
-        }
-    }
+    // [HttpGet("cv/{userId}")]
+    // [Authorize(Roles = "PublicFacility")]
+    // public async Task<IActionResult> GetUserCv(Guid userId)
+    // {
+    //     var supervisorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+    //
+    //     try
+    //     {
+    //         var cvData = await _context.GetUserCvForSupervisorAsync(userId, supervisorId);
+    //         return Ok(cvData);
+    //     }
+    //     catch (UnauthorizedAccessException e)
+    //     {
+    //         return Forbid(e.Message);
+    //     }
+    //     catch (InvalidOperationException e)
+    //     {
+    //         return BadRequest(new { error = e.Message });
+    //     }
+    //     catch (KeyNotFoundException e)
+    //     {
+    //         return NotFound(new { error = e.Message });
+    //     }
+    // }
     
     [HttpGet("applications/{userId:guid}")]
     [Authorize(Roles = "PublicFacility")]
@@ -112,31 +112,31 @@ public class PublicFacilityController : ControllerBase
         }
     }
     
-    [HttpGet("employment/{userId:guid}")]
-    [Authorize(Roles = "PublicFacility")]
-    public async Task<IActionResult> GetUserWorkExperiences(Guid userId)
-    {
-        var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(supervisorIdClaim) || !Guid.TryParse(supervisorIdClaim, out var supervisorId))
-            return Unauthorized("Nieprawidłowy supervisor ID.");
-
-        try
-        {
-            var workHistory = await _context.GetUserWorkExperiencesForSupervisorAsync(userId, supervisorId);
-            return Ok(workHistory);
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(e.Message);
-        }
-        catch (AuthenticationException e)
-        {
-            return Forbid(e.Message);
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, "Wystąpił błąd serwera.");
-        }
-    }
+    // [HttpGet("employment/{userId:guid}")]
+    // [Authorize(Roles = "PublicFacility")]
+    // public async Task<IActionResult> GetUserWorkExperiences(Guid userId)
+    // {
+    //     var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    //
+    //     if (string.IsNullOrEmpty(supervisorIdClaim) || !Guid.TryParse(supervisorIdClaim, out var supervisorId))
+    //         return Unauthorized("Nieprawidłowy supervisor ID.");
+    //
+    //     try
+    //     {
+    //         var workHistory = await _context.GetUserWorkExperiencesForSupervisorAsync(userId, supervisorId);
+    //         return Ok(workHistory);
+    //     }
+    //     catch (KeyNotFoundException e)
+    //     {
+    //         return NotFound(e.Message);
+    //     }
+    //     catch (AuthenticationException e)
+    //     {
+    //         return Forbid(e.Message);
+    //     }
+    //     catch (Exception)
+    //     {
+    //         return StatusCode(500, "Wystąpił błąd serwera.");
+    //     }
+    // }
 }

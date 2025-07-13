@@ -4,7 +4,7 @@ services:
   JobForge.api:
     build:
       context: "C:\\Users\\Fabia\\RiderProjects\\JobForge"
-      dockerfile: "jobforge/Dockerfile"
+      dockerfile: "JobForge/Dockerfile"
       target: "base"
     command: []
     entrypoint:

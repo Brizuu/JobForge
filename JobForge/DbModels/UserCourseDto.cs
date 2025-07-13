@@ -2,8 +2,12 @@
 
 public class UserCourseDto
 {
-    public int CourseId { get; set; }
-    public string CourseTitle { get; set; }
-    public string CourseDescription { get; set; }
-    public double CompletionPercentage { get; set; }
+    // public Guid CourseId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; } = string.Empty;
+    public string? Institution { get; set; }
+    public decimal? CompletionTime { get; set; }
+    public string? Category { get; set; } = string.Empty;
+    public bool? isCompleted { get; set; } = false;
+    public double? CompletionPercentage { get; set; }
 }

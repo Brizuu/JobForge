@@ -17,7 +17,8 @@ public class EmploymentContractsController : ControllerBase
         _service = service;
     }
 
-    [HttpPost]
+    [Authorize(Roles = "Admin, Company, PublicFacility")]
+    [HttpPost("company/create")]
     public async Task<IActionResult> AddContract([FromBody] EmploymentContractDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
@@ -30,7 +31,8 @@ public class EmploymentContractsController : ControllerBase
         return Ok();
     }
     
-    [HttpDelete("{contractId:int}")]
+    [Authorize(Roles = "Admin, Company, PublicFacility")]
+    [HttpDelete("company/{contractId:int}")]
     public async Task<IActionResult> DeleteContract(int contractId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
@@ -48,7 +50,8 @@ public class EmploymentContractsController : ControllerBase
         return NoContent();
     }
     
-    [HttpPost("{contractId:int}/accept")]
+    [Authorize(Roles = "Admin, Premium")]
+    [HttpPost("user/{contractId:int}/accept")]
     public async Task<IActionResult> AcceptContract(int contractId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
@@ -66,7 +69,8 @@ public class EmploymentContractsController : ControllerBase
         return Ok("Contract accepted.");
     }
 
-    [HttpPost("{contractId:int}/reject")]
+    [Authorize(Roles = "Admin, Premium")]
+    [HttpPost("user/{contractId:int}/reject")]
     public async Task<IActionResult> RejectContract(int contractId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
@@ -84,7 +88,8 @@ public class EmploymentContractsController : ControllerBase
         return Ok("Contract rejected.");
     }
 
-    [HttpGet("{contractId:int?}")]
+    [Authorize(Roles = "Admin, Premium, Company, PublicFacility")]
+    [HttpGet("get-contract/{contractId:int?}")]
     [Authorize]
     public async Task<IActionResult> GetContracts(int? contractId)
     {
@@ -109,6 +114,20 @@ public class EmploymentContractsController : ControllerBase
 
         var userContracts = await _service.GetUserContractsAsync(userId);
         return Ok(userContracts);
+    }
+    
+    [Authorize(Roles = "Admin, Premium, Company, PublicFacility")]
+    [HttpGet("get-contracts")]
+    public async Task<IActionResult> GetMyContracts()
+    {
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var contracts = await _service.GetUserContractsAsync(userId);
+        return Ok(contracts);
     }
 
 

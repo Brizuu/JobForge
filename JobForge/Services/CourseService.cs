@@ -22,54 +22,78 @@ public class CourseService : ICourseService
             Description = dto.Description,
             Category = dto.Category,
             CreatorId = userId,
-            Sections = new List<CourseSection>() // Można zostawić pustą na start
+            Institution = dto.Institution,
+            CompletionTime = dto.CompletionTime,
+            Published = dto.Published ?? false,
+            Sections = new List<CourseSection>()
         };
 
         _context.Courses.Add(course);
         await _context.SaveChangesAsync();
 
-        foreach (var sectionDto in dto.Sections)
+        foreach (var sectionDto in dto.Sections.Where(s => s != null))
         {
             var section = new CourseSection
             {
-                Title = sectionDto.Title,
+                Title = sectionDto!.Title,
                 Description = sectionDto.Description,
                 Category = sectionDto.Category,
                 ImageUrl = sectionDto.ImageUrl,
+                VideoUrl = sectionDto.VideoUrl,
+                CompletionTime = sectionDto.CompletionTime,
                 CompletionPercentage = sectionDto.CompletionPercentage,
                 CourseId = course.Id
             };
             _context.CourseSections.Add(section);
-            // UWAGA: Nie dodajemy tutaj do course.Sections, żeby nie mieć duplikatów
         }
 
         await _context.SaveChangesAsync();
-
-        // Załaduj sekcje, aby mieć aktualną kolekcję
         await _context.Entry(course).Collection(c => c.Sections).LoadAsync();
 
         return course;
     }
 
-
-    
-    public async Task<Course?> UpdateCourseAsync(int courseId, CourseDto dto)
+    public async Task<Course?> UpdateCourseAsync(Guid courseId, CourseDto dto)
     {
-        var course = await _context.Courses.FindAsync(courseId);
+        var course = await _context.Courses
+            .Include(c => c.Sections)
+            .FirstOrDefaultAsync(c => c.Id == courseId);
+
         if (course == null)
             return null;
 
         course.Title = dto.Title;
         course.Description = dto.Description;
-        course.Category = dto.Category;  // zakładam, że Category jest w dto
-        
+        course.Category = dto.Category;
+        course.Institution = dto.Institution;
+        course.CompletionTime = dto.CompletionTime;
+        course.Published = dto.Published ?? course.Published;
+
+        // Nadpisujemy sekcje
+        _context.CourseSections.RemoveRange(course.Sections);
+        await _context.SaveChangesAsync();
+
+        foreach (var sectionDto in dto.Sections.Where(s => s != null))
+        {
+            var section = new CourseSection
+            {
+                Title = sectionDto!.Title,
+                Description = sectionDto.Description,
+                Category = sectionDto.Category,
+                ImageUrl = sectionDto.ImageUrl,
+                VideoUrl = sectionDto.VideoUrl,
+                CompletionTime = sectionDto.CompletionTime,
+                CompletionPercentage = sectionDto.CompletionPercentage,
+                CourseId = course.Id
+            };
+            _context.CourseSections.Add(section);
+        }
 
         await _context.SaveChangesAsync();
         return course;
     }
 
-
-    public async Task<bool> DeleteCourseAsync(int courseId)
+    public async Task<bool> DeleteCourseAsync(Guid courseId)
     {
         var course = await _context.Courses
             .Include(c => c.Sections)
@@ -80,13 +104,11 @@ public class CourseService : ICourseService
 
         _context.CourseSections.RemoveRange(course.Sections);
         _context.Courses.Remove(course);
-
         await _context.SaveChangesAsync();
         return true;
     }
 
-
-    public async Task<CourseSection> AddSectionAsync(int courseId, CourseSectionDto sectionDto)
+    public async Task<CourseSection> AddSectionAsync(Guid courseId, CourseSectionDto sectionDto)
     {
         var course = await _context.Courses.FindAsync(courseId);
         if (course == null)
@@ -98,6 +120,8 @@ public class CourseService : ICourseService
             Description = sectionDto.Description,
             Category = sectionDto.Category,
             ImageUrl = sectionDto.ImageUrl,
+            VideoUrl = sectionDto.VideoUrl,
+            CompletionTime = sectionDto.CompletionTime,
             CompletionPercentage = sectionDto.CompletionPercentage,
             CourseId = courseId
         };
@@ -107,23 +131,23 @@ public class CourseService : ICourseService
         return section;
     }
 
-    
-    public async Task<CourseSection?> UpdateSectionAsync(int sectionId, CourseSectionDto updatedDto)
+    public async Task<CourseSection?> UpdateSectionAsync(int sectionId, CourseSectionEditDto updatedDto)
     {
         var section = await _context.CourseSections.FindAsync(sectionId);
         if (section == null)
             return null;
 
-        section.Title = updatedDto.Title;
-        section.Description = updatedDto.Description;
-        section.Category = updatedDto.Category;
-        section.ImageUrl = updatedDto.ImageUrl;
-        section.CompletionPercentage = updatedDto.CompletionPercentage;
+        section.Title = updatedDto.Title ?? section.Title;
+        section.Description = updatedDto.Description ?? section.Description;
+        section.Category = updatedDto.Category ?? section.Category;
+        section.ImageUrl = updatedDto.ImageUrl ?? section.ImageUrl;
+        section.VideoUrl = updatedDto.VideoUrl ?? section.VideoUrl;
+        section.CompletionTime = updatedDto.CompletionTime ?? section.CompletionTime;
+        section.CompletionPercentage = updatedDto.CompletionPercentage ?? section.CompletionPercentage;
 
         await _context.SaveChangesAsync();
         return section;
     }
-
 
     public async Task<bool> DeleteSectionAsync(int sectionId)
     {
@@ -136,7 +160,6 @@ public class CourseService : ICourseService
         return true;
     }
 
-
     public async Task<List<Course>> GetCoursesByCreatorAsync(Guid creatorId)
     {
         return await _context.Courses
@@ -144,11 +167,11 @@ public class CourseService : ICourseService
             .Where(c => c.CreatorId == creatorId)
             .ToListAsync();
     }
-    
-    public async Task<IEnumerable<Course>> GetAllCoursesAsync(string? category)
+
+    public async Task<IEnumerable<object>> GetAllCoursesAsync(string? category)
     {
         var query = _context.Courses
-            .Include(c => c.Sections)
+            .Where(c => c.Published) 
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -156,79 +179,145 @@ public class CourseService : ICourseService
             query = query.Where(c => c.Category.ToLower() == category.ToLower());
         }
 
-        return await query.ToListAsync();
+        var result = await query
+            .Select(c => new
+            {
+                c.Id,
+                c.Title,
+                c.Institution,
+                c.CompletionTime,
+                c.Category
+            })
+            .ToListAsync();
+
+        return result;
     }
 
-    public async Task<Course?> GetCourseByIdAsync(int courseId)
+    public async Task<bool> ChangeCoursePublishedStateAsync(Guid courseId, Guid userId, bool newState)
     {
-        var course = await _context.Courses
+        var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && c.CreatorId == userId);
+        if (course == null)
+            return false;
+
+        course.Published = newState;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+
+
+    public async Task<Course?> GetCourseByIdAsync(Guid courseId)
+    {
+        return await _context.Courses
             .Include(c => c.Sections)
             .FirstOrDefaultAsync(c => c.Id == courseId);
-
-        return course;
     }
-    
-    public async Task AddUserCourseAsync(Guid userId, UserCourseCreateDto dto)
+
+    public async Task<bool> StartCourseAsync(Guid userId, Guid courseId)
     {
-        var entity = new UserCourse
+        var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && c.Published);
+        if (course == null) return false;
+
+        var existing = await _context.UserCourses
+            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CourseId == courseId);
+        if (existing != null) return true; // Already added
+
+        // Automatyczne pobranie GeneratedCV
+        var cv = await _context.GeneratedCVs.FirstOrDefaultAsync(c => c.UserId == userId);
+        if (cv == null) return false; // Nie znaleziono CV — można też rozważyć stworzenie nowego
+
+        var userCourse = new UserCourse
         {
+            CourseId = courseId,
             UserId = userId,
-            CourseId = dto.CourseId,
-            CourseTitle = dto.CourseTitle,
-            CourseDescription = dto.CourseDescription,
-            CompletionPercentage = dto.CompletionPercentage
+            GeneratedCVId = cv.Id,
+            Title = course.Title,
+            Description = course.Description,
+            Institution = course.Institution,
+            CompletionTime = course.CompletionTime,
+            Category = course.Category,
+            isCompleted = false,
+            Verified = true,
+            CompletionPercentage = 0
         };
 
-        _context.UserCourses.Add(entity);
+        _context.UserCourses.Add(userCourse);
         await _context.SaveChangesAsync();
+
+        return true;
     }
 
-    public async Task UpdateCompletionPercentageAsync(Guid userId, UserCourseUpdateDto dto)
+
+
+    public async Task UpdateCompletionPercentageAsync(Guid userId, Guid courseId, double newPercentage)
     {
         var userCourse = await _context.UserCourses
-            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CourseId == dto.CourseId);
+            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CourseId == courseId);
 
         if (userCourse != null)
         {
-            userCourse.CompletionPercentage = dto.CompletionPercentage;
+            userCourse.CompletionPercentage = newPercentage;
             await _context.SaveChangesAsync();
         }
     }
-
     
+    public async Task<CourseSection?> GetNextSectionAsync(Guid userId, Guid courseId)
+    {
+        var userCourse = await _context.UserCourses
+            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CourseId == courseId);
+
+        if (userCourse == null)
+            return null;
+
+        var sections = await _context.CourseSections
+            .Where(s => s.CourseId == courseId)
+            .OrderBy(s => s.Id)
+            .ToListAsync();
+
+        if (!sections.Any())
+            return null;
+
+        int? lastCompleted = userCourse.LastCompletedSectionId;
+        CourseSection? nextSection;
+
+        if (lastCompleted == null || lastCompleted == 0)
+        {
+            nextSection = sections.FirstOrDefault();
+        }
+        else
+        {
+            nextSection = sections.FirstOrDefault(s => s.Id > lastCompleted);
+        }
+
+        if (nextSection == null)
+            return null;
+        
+        userCourse.LastCompletedSectionId = nextSection.Id;
+        
+        var index = sections.IndexOf(nextSection) + 1; // +1 because we're completing this one
+        var total = sections.Count;
+        userCourse.CompletionPercentage = Math.Round((double)index / total * 100, 2);
+
+        await _context.SaveChangesAsync();
+
+        return nextSection;
+    }
+
+
+
     public async Task<IEnumerable<UserCourseDto>> GetCoursesByUserIdAsync(Guid userId)
     {
         return await _context.UserCourses
             .Where(uc => uc.UserId == userId)
             .Select(uc => new UserCourseDto
             {
-                CourseId = uc.CourseId,
-                CourseTitle = uc.CourseTitle,
-                CourseDescription = uc.CourseDescription,
+                Title = uc.Title,
+                Description = uc.Description,
+                Institution = uc.Institution,
+                CompletionTime = uc.CompletionTime,
+                Category = uc.Category,
                 CompletionPercentage = uc.CompletionPercentage
             })
             .ToListAsync();
     }
-
-    public async Task AddCompletedCourseTitleAsync(Guid userId, int courseId)
-    {
-        var course = await _context.UserCourses
-            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CourseId == courseId);
-
-        if (course == null || course.CompletionPercentage < 100)
-            return; 
-
-        var personalInfo = await _context.PersonalInformations
-            .FirstOrDefaultAsync(pi => pi.UserId == userId);
-
-        if (personalInfo == null)
-            return; 
-
-        if (!personalInfo.Courses.Contains(course.CourseTitle))
-        {
-            personalInfo.Courses.Add(course.CourseTitle);
-            await _context.SaveChangesAsync();
-        }
-    }
-
 }

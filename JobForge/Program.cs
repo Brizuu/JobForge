@@ -1,138 +1,145 @@
-using System.Security.Claims;
-using System.Text;
-using JobForge.Data;
-using JobForge.Hubs;
-using JobForge.Models;
-using JobForge.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Annotations;
+    using System.Security.Claims;
+    using System.Text;
+    using JobForge.Data;
+    using JobForge.Hubs;
+    using JobForge.Models;
+    using JobForge.Services;
+    using Microsoft.AspNetCore.Authentication.JwtBearer;
+    using Microsoft.AspNetCore.Identity;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.IdentityModel.Tokens;
+    using Microsoft.OpenApi.Models;
+    using Swashbuckle.AspNetCore.Annotations;
 
-var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(args);
 
-// builder.Services.AddOpenApi();
-builder.Services.AddSwaggerGen();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddControllers();
-builder.Services.AddControllersWithViews();
-// builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
-
-builder.Services.AddScoped<ICvService, CvService>();
-builder.Services.AddScoped<IJobOfferService, JobOfferService>();
-builder.Services.AddScoped<IContractService, ContractService>();
-builder.Services.AddScoped<ICourseService, CourseService>();
-builder.Services.AddScoped<IPublicFacility, PublicFacility>();
-builder.Services.AddScoped<IInternshipService, InternshipService>();
-builder.Services.AddScoped<IGrantService, GrantService>();
-builder.Services.AddScoped<IRaportService, RaportService>();
-
-
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
-
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
-
-builder.Services.AddSignalR();
-
-// builder.Services.AddScoped<CvService>();
-
-builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
+    // builder.Services.AddOpenApi();
+    builder.Services.AddSwaggerGen();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            RoleClaimType = ClaimTypes.Role,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+        });
+
+    builder.Services.AddControllersWithViews(); // jeśli potrzebne dla Razor/Views
+    // builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
+
+    builder.Services.AddScoped<ICvService, CvService>();
+    builder.Services.AddScoped<IJobOfferService, JobOfferService>();
+    builder.Services.AddScoped<IContractService, ContractService>();
+    builder.Services.AddScoped<ICourseService, CourseService>();
+    builder.Services.AddScoped<IPublicFacility, PublicFacility>();
+    builder.Services.AddScoped<IInternshipService, InternshipService>();
+    builder.Services.AddScoped<IGrantService, GrantService>();
+    builder.Services.AddScoped<IRaportService, RaportService>();
+    builder.Services.AddScoped<IAuthService, AuthService>();
+
+
+
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+        .AddEntityFrameworkStores<AppDbContext>()
+        .AddDefaultTokenProviders();
+
+    builder.Services.AddSignalR();
+
+    // builder.Services.AddScoped<CvService>();
+
+    builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                RoleClaimType = ClaimTypes.Role,
+                ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                ValidAudience = builder.Configuration["Jwt:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            };
+        });
+
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "JobForge",
+            Version = "v1",
+            Description = "Dokumentacja API z użyciem Swaggera"
+        });
+        c.EnableAnnotations();
+        
+        var jwtSecurityScheme = new OpenApiSecurityScheme
+        {
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.Http,
+            Description = "Wpisz {token}",
+
+            Reference = new OpenApiReference
+            {
+                Id = JwtBearerDefaults.AuthenticationScheme,
+                Type = ReferenceType.SecurityScheme
+            }
         };
-    });
 
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "JobForge",
-        Version = "v1",
-        Description = "Dokumentacja API z użyciem Swaggera"
-    });
-    c.EnableAnnotations();
-    
-    var jwtSecurityScheme = new OpenApiSecurityScheme
-    {
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Description = "Wpisz {token}",
+        c.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
 
-        Reference = new OpenApiReference
+        c.AddSecurityRequirement(new OpenApiSecurityRequirement
         {
-            Id = JwtBearerDefaults.AuthenticationScheme,
-            Type = ReferenceType.SecurityScheme
-        }
-    };
-
-    c.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        { jwtSecurityScheme, Array.Empty<string>() }
+            { jwtSecurityScheme, Array.Empty<string>() }
+        });
     });
-});
 
-var app = builder.Build();
+    var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<AppDbContext>();
-    // Odpalenie migracji (synchronizowane)
-    context.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<AppDbContext>();
+        // Odpalenie migracji (synchronizowane)
+        context.Database.Migrate();
 
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-    // Czekamy aż role się zseedują
-    await RoleSeeder.SeedRolesAsync(roleManager);
-}
-
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapHub<ChatHub>("/chathub");
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        // Czekamy aż role się zseedują
+        await RoleSeeder.SeedRolesAsync(roleManager);
+    }
 
 
-// app.MapOpenApi();
-app.UseHttpsRedirection();
-app.MapControllers();
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapHub<ChatHub>("/chathub");
 
 
-app.UseSwagger();  
-
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "JobForge API V1");
-    options.RoutePrefix = "swagger"; 
-    options.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
-});
-
-app.UseStaticFiles();
+    // app.MapOpenApi();
+    app.UseHttpsRedirection();
+    app.MapControllers();
 
 
-app.Run();
+    app.UseSwagger();  
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "JobForge API V1");
+        options.RoutePrefix = "swagger"; 
+        options.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
+    });
+
+    app.UseStaticFiles();
+
+
+    app.Run();
 

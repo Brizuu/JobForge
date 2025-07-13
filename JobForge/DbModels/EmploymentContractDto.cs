@@ -2,7 +2,6 @@
 
 public class EmploymentContractDto
 {
-    public int Id { get; set; }
     public DateTime ContractDate { get; set; }
     public string EmploymentType { get; set; } = string.Empty;
     public string JobTitle { get; set; } = string.Empty;

@@ -9,6 +9,7 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace JobForge.Controllers;
 
+[Authorize(Roles = "Admin, Premium")]
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -21,7 +22,7 @@ public class CvController : ControllerBase
         _service = service;
     }
     
-    private Guid GetUserIdFromToken()
+    private Guid GetUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
         if (userIdClaim == null)
@@ -29,185 +30,275 @@ public class CvController : ControllerBase
         return Guid.Parse(userIdClaim.Value);
     }
     
-    [HttpPost("personal-data")]
-    public async Task<IActionResult> AddPersonalData([FromBody] PersonalDataDto dto)
+    
+    [HttpPost("personal-information")]
+    public async Task<IActionResult> Add(PersonalInformationDto dto)
     {
-        var userId = GetUserIdFromToken();
-        var created = await _service.AddPersonalDataAsync(dto, userId);
-        return CreatedAtAction(null, new { id = created.Id }, created); // Brak GET więc null
+        await _service.AddPersonalInformations(GetUserId(), dto);
+        return Ok();
     }
 
-    [HttpPut("personal-data/{id}")]
-    public async Task<IActionResult> UpdatePersonalData(int id, [FromBody] PersonalDataDto dto)
+    [HttpGet("personal-information")]
+    public async Task<ActionResult<PersonalInformationDto?>> Get()
     {
-        var userId = GetUserIdFromToken();
-
-        try
-        {
-            var updated = await _service.UpdatePersonalDataAsync(id, dto, userId);
-            return Ok(updated);
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound(new { message = "Dane osobowe nie znalezione lub brak dostępu." });
-        }
+        var result = await _service.GetPersonalInformations(GetUserId());
+        return result is null ? NotFound() : Ok(result);
     }
 
-    [HttpDelete("personal-data/{id}")]
-    public async Task<IActionResult> DeletePersonalData(int id)
+    [HttpPut("personal-information")]
+    public async Task<IActionResult> Update(PersonalInformationEditDto dto)
     {
-        var userId = GetUserIdFromToken();
-
-        try
-        {
-            await _service.DeletePersonalDataAsync(id, userId);
-            return Ok(new { message = "Dane osobowe usunięte pomyślnie." });
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound(new { message = "Dane osobowe nie znalezione lub brak dostępu." });
-        }
+        await _service.UpdatePersonalInformations(GetUserId(), dto);
+        return NoContent();
     }
     
-    [HttpPost("generate")]
-    public async Task<IActionResult> GenerateCv()
+    
+    
+    [HttpPost("work-experience")]
+    public async Task<IActionResult> Add(WorkExperienceDto dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null)
-            return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-
-        // Sprawdzenie roli Premium
-        if (!User.IsInRole("Premium"))
-        {
-            return Forbid("Tylko użytkownicy z rangą Premium mogą generować CV.");
-        }
-
         try
         {
-            await _service.GenerateCvAsync(userId);
-            return Ok(new { message = "CV zostało pomyślnie wygenerowane." });
+            await _service.AddWorkExperience(GetUserId(), dto);
+            return Ok();
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Wystąpił błąd serwera.", error = ex.Message });
+            return Conflict(new { message = ex.Message });
         }
     }
-    
-    // -------------------- WorkExperience --------------------
-    [HttpPost("work-experience")]
-    public async Task<IActionResult> AddWorkExperience([FromBody] WorkExperienceDto experience)
+
+    [HttpGet("work-experience")]
+    public async Task<IActionResult> GetAll()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
+        var userId = GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
 
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.AddWorkExperienceAsync(experience, userId);
+        var result = await _service.GetWorkExperienceAsync(userId);
+        return Ok(result);
+    }
 
-        return Ok(new { message = "Work experience added successfully" });
+
+    [HttpPut("work-experience/{id:guid}")]
+    public async Task<IActionResult> UpdateWorkExperience(Guid id, [FromBody] WorkExperienceEditDto dto)
+    {
+        var userId = GetUserId(); 
+        var updated = await _service.UpdateWorkExperience(userId, id, dto);
+
+        if (!updated)
+            return NotFound("Nie znaleziono doświadczenia zawodowego o podanym Id.");
+
+        return Ok("Doświadczenie zawodowe zostało zaktualizowane.");
     }
     
-    [HttpPut("work-experience/{id}")]
-    public async Task<IActionResult> UpdateWorkExperience(int id, [FromBody] WorkExperienceDto experience)
+    [HttpDelete("work-experience/{id:guid}")]
+    public async Task<IActionResult> DeleteWorkExperience(Guid id)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.UpdateWorkExperienceAsync(id, experience, userId);
-
-        return Ok(new { message = "Work experience updated successfully" });
-    }
-
-    [HttpDelete("work-experience/{id}")]
-    public async Task<IActionResult> DeleteWorkExperience(int id)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.RemoveWorkExperienceAsync(id, userId);
-
-        return Ok(new { message = "Work experience deleted successfully" });
-    }
-
-    // -------------------- Education --------------------
-    [HttpPost("education")]
-    public async Task<IActionResult> AddEducation([FromBody] EducationDto education)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.AddEducationAsync(education, userId);
-
-        return Ok(new { message = "Education added successfully" });
+        var userId = GetUserId();
+        await _service.DeleteWorkExperience(userId, id);
+        return NoContent();
     }
     
-    [HttpPut("education/{id}")]
-    public async Task<IActionResult> UpdateEducation(int id, [FromBody] EducationDto education)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.UpdateEducationAsync(id, education, userId);
-
-        return Ok(new { message = "Education updated successfully" });
-    }
-
-    [HttpDelete("education/{id}")]
-    public async Task<IActionResult> DeleteEducation(int id)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.RemoveEducationAsync(id, userId);
-
-        return Ok(new { message = "Education deleted successfully" });
-    }
-
-    // -------------------- Language --------------------
-
+    
     [HttpPost("language")]
-    public async Task<IActionResult> AddLanguage([FromBody] LanguageDto language)
+    public async Task<IActionResult> AddLanguage([FromBody] LanguageDto dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
+        try
+        {
+            await _service.AddLanguage(GetUserId(), dto);
+            return Ok("Język został dodany.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.AddLanguageAsync(language, userId);
+    [HttpGet("language")]
+    public async Task<IActionResult> GetLanguages()
+    {
+        var userId = GetUserId(); 
+        var result = await _service.GetUserLanguages(userId);
+        return Ok(result);
+    }
 
-        return Ok(new { message = "Language added successfully" });
+    [HttpPut("language/{id:guid}")]
+    public async Task<IActionResult> UpdateLanguage(Guid id, [FromBody] LanguageEditDto dto)
+    {
+        var success = await _service.UpdateLanguage(GetUserId(), id, dto);
+        return success ? Ok("Zaktualizowano język.") : NotFound("Nie znaleziono języka.");
     }
     
-    [HttpPut("language/{id}")]
-    public async Task<IActionResult> UpdateLanguage(int id, [FromBody] LanguageDto language)
+    [HttpDelete("language/{id:guid}")]
+    public async Task<IActionResult> DeleteLanguage(Guid id)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
+        var userId = GetUserId();
+        await _service.DeleteLanguage(userId, id);
+        return NoContent();
+    }
 
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.UpdateLanguageAsync(id, language, userId);
+    
+    
+    [HttpGet("soft-skills")]
+    public async Task<IActionResult> GetSoftSkills()
+    {
+        var userId = GetUserId(); 
+        var skills = await _service.GetSoftSkills(userId);
+        return Ok(skills);
+    }
 
-        return Ok(new { message = "Language updated successfully" });
+    [HttpPost("soft-skills")]
+    public async Task<IActionResult> AddSoftSkill([FromBody] SoftSkillsDto dto)
+    {
+        var userId = GetUserId();
+        var skill = await _service.AddSoftSkills(userId, dto);
+        return CreatedAtAction(nameof(GetSoftSkills), new { id = skill.Id }, skill);
     }
     
-    [HttpDelete("language/{id}")]
-    public async Task<IActionResult> DeleteLanguage(int id)
+    [HttpPut("soft-skills/{id:guid}")]
+    public async Task<IActionResult> UpdateSoftSkill(Guid id, [FromBody] SoftSkillsEditDto dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
+        var userId = GetUserId();
+        var updated = await _service.UpdateSoftSkills(userId, id, dto);
+        if (!updated)
+            return NotFound("Nie znaleziono umiejętności miękkiej o podanym Id.");
 
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        await _service.RemoveLanguageAsync(id, userId);
-
-        return Ok(new { message = "Language deleted successfully" });
+        return Ok("Umiejętność miękka została zaktualizowana.");
     }
+    
+    [HttpDelete("soft-skills/{id:guid}")]
+    public async Task<IActionResult> DeleteSoftSkills(Guid id)
+    {
+        var userId = GetUserId();
+        await _service.DeleteSoftSkills(userId, id);
+        return NoContent();
+    }
+    
+    
+    
+    [HttpGet("technical-skills")]
+    public async Task<IActionResult> GetTechnicalSkills()
+    {
+        var userId = GetUserId();
+        var skills = await _service.GetTechnicalSkills(userId);
+        return Ok(skills);
+    }
+    
+    [HttpPost("technical-skills")]
+    public async Task<IActionResult> AddTechnicalSkill([FromBody] TechnicalSkillsDto dto)
+    {
+        var userId = GetUserId();
+        var skill = await _service.AddTechnicalSkill(userId, dto);
+        return CreatedAtAction(nameof(GetTechnicalSkills), new { id = skill.Id }, skill);
+    }
+    
+    [HttpPut("technical-skills/{id:guid}")]
+    public async Task<IActionResult> UpdateTechnicalSkill(Guid id, [FromBody] TechnicalSkillsEditDto dto)
+    {
+        var userId = GetUserId();
+        var updated = await _service.UpdateTechnicalSkill(userId, id, dto);
+        if (!updated)
+            return NotFound("Nie znaleziono umiejętności technicznej o podanym Id.");
+
+        return Ok("Umiejętność techniczna została zaktualizowana.");
+    }
+    
+    [HttpDelete("technical-skills/{id:guid}")]
+    public async Task<IActionResult> DeleteTechnicalSkill(Guid id)
+    {
+        var userId = GetUserId();
+        await _service.DeleteTechnicalSkill(userId, id);
+        return NoContent();
+    }
+
+    
+    
+    [HttpGet("interests")]
+    public async Task<IActionResult> GetInterests()
+    {
+        var userId = GetUserId();
+        var interests = await _service.GetInterests(userId);
+        return Ok(interests);
+    }
+    
+    [HttpPost("interests")]
+    public async Task<IActionResult> AddInterest([FromBody] InterestsDto dto)
+    {
+        var userId = GetUserId();
+        var interest = await _service.AddInterest(userId, dto);
+        return CreatedAtAction(nameof(GetInterests), new { id = interest.Id }, interest);
+    }
+    
+    [HttpPut("interests/{id:guid}")]
+    public async Task<IActionResult> UpdateInterest(Guid id, [FromBody] InterestsEditDto dto)
+    {
+        var userId = GetUserId();
+        var updated = await _service.UpdateInterest(userId, id, dto);
+        if (!updated)
+            return NotFound("Nie znaleziono zainteresowania o podanym Id.");
+
+        return Ok("Zainteresowanie zostało zaktualizowane.");
+    }
+    
+    [HttpDelete("interests/{id:guid}")]
+    public async Task<IActionResult> DeleteInterest(Guid id)
+    {
+        var userId = GetUserId();
+        await _service.DeleteInterest(userId, id);
+        return NoContent();
+    }
+
+    
+    
+    [HttpPost("user-courses")]
+    public async Task<IActionResult> AddCourse([FromBody] UserCourseDto dto)
+    {
+        var userId = GetUserId();
+        await _service.AddUserCourse(userId, dto);
+        return Ok();
+    }
+
+    [HttpGet("user-courses")]
+    public async Task<IActionResult> GetCourses()
+    {
+        var userId = GetUserId();
+        var result = await _service.GetUserCourses(userId);
+        return Ok(result);
+    }
+
+    [HttpPut("user-courses/{courseId:guid}")]
+    public async Task<IActionResult> Update(Guid courseId, [FromBody] UserCourseEditDto dto)
+    {
+        var userId = GetUserId();
+        await _service.UpdateUserCourse(userId, courseId, dto);
+        return NoContent();
+    }
+    
+    [HttpDelete("user-courses/{courseId:guid}")]
+    public async Task<IActionResult> Delete(Guid courseId)
+    {
+        var userId = GetUserId();
+        await _service.DeleteUserCourse(userId, courseId);
+        return NoContent();
+    }
+    
+    
+    [HttpPost("generate-cv")]
+    public async Task<IActionResult> GenerateCv()
+    {
+        var userId = GetUserId();
+        var generatedCv = await _service.GenerateCvAsync(userId);
+        return Ok(generatedCv);
+    }
+
+    [HttpGet("get-cv")]
+    public async Task<IActionResult> GetGeneratedCv()
+    {
+        var userId = GetUserId();
+        var cvDto = await _service.GetGeneratedCvAsync(userId);
+        if (cvDto == null) return NotFound();
+        return Ok(cvDto);
+    }
+
 }

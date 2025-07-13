@@ -78,19 +78,26 @@ public class ContractService : IContractService
 
             if (personalInfo == null)
             {
-                // Możesz też rzucić wyjątek lub zalogować błąd
                 return false;
             }
 
+            // Pobierz istniejące wygenerowane CV użytkownika
+            var generatedCV = await _context.GeneratedCVs
+                .FirstOrDefaultAsync(cv => cv.UserId == contractorId);
+
             var workExperience = new WorkExperience
             {
-                PersonalInformationId = personalInfo.Id,  // klucz obcy
-                UserId = contractorId,                     // GUID użytkownika
+                UserId = contractorId,
                 CompanyName = contract.CompanyName,
+                PositionTitle = contract.JobTitle ?? "N/A",
+                Location = contract.WorkplaceLocation ?? "N/A",
+                EmploymentType = contract.EmploymentType ?? "N/A",
                 EmploymentDateStart = contract.WorkStartDate,
                 EmploymentDateEnd = contract.ContractValidTo ?? DateTime.MaxValue,
                 Responsibilities = contract.AdditionalEmploymentConditions ?? string.Empty,
-                Verified = "yes"
+                TechnologiesUsed = "",
+                Verified = true,
+                GeneratedCVId = generatedCV.Id
             };
 
             _context.WorkExperiences.Add(workExperience);
@@ -99,6 +106,8 @@ public class ContractService : IContractService
         await _context.SaveChangesAsync();
         return true;
     }
+
+
 
 
 

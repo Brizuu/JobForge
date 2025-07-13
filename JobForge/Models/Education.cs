@@ -1,14 +1,23 @@
-﻿namespace JobForge.Models;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
+namespace JobForge.Models;
+
+[Table("UserEducation")]
 public class Education
 {
-    public int Id { get; set; }
+    [Key]
+    public Guid Id { get; set; }
+    
     public Guid UserId { get; set; }
-    public string SchoolName { get; set; }
-    public string Major { get; set; }
-    public DateTime EducationDateStart { get; set; }
-    public DateTime EducationDateEnd { get; set; }
 
-    public int PersonalInformationId { get; set; }
-    public PersonalInformation PersonalInformation { get; set; }
+    public Guid GeneratedCVId { get; set; }
+    [ForeignKey(nameof(GeneratedCVId))]
+    public GeneratedCV CV { get; set; }
+
+    public string SchoolName { get; set; } = string.Empty;
+    public string? Specialization { get; set; }
+    public DateTime EducationDateStart { get; set; }
+    public DateTime? EducationDateEnd { get; set; }
 }
+
