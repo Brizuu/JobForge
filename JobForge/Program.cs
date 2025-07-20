@@ -46,6 +46,21 @@
     builder.Services.AddSignalR();
 
     // builder.Services.AddScoped<CvService>();
+    
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend", policy =>
+        {
+            policy.WithOrigins("http://127.0.0.1") // frontend origin
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials(); // <-- ważne!
+        });
+    });
+
+
+
+
 
     builder.Services.AddAuthentication(options =>
         {
@@ -116,13 +131,17 @@
         await RoleSeeder.SeedRolesAsync(roleManager);
     }
 
-
-    app.UseAuthentication();
-    app.UseAuthorization();
+    app.UseCors("AllowFrontend");
 
     
+    app.UseAuthentication();
+    app.UseAuthorization();
+    
+    
     builder.Services.AddHttpContextAccessor();
-    app.MapHub<ChatHub>("/chathub");
+    app.MapHub<ChatHub>("/chatHub").RequireCors("AllowFrontend");
+
+        
 
 
     // app.MapOpenApi();
