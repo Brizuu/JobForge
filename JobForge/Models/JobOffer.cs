@@ -8,7 +8,8 @@ public class JobOffer
 
     public string JobTitle { get; set; }
     public string Description { get; set; }
-    public string Location { get; set; }
+    
+    public List<JobOfferLocation> Locations { get; set; } = new();
     public string EmploymentType { get; set; }
     public decimal? SalaryFrom { get; set; }
     public decimal? SalaryTo { get; set; }

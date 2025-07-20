@@ -1,6 +1,6 @@
-﻿namespace JobForge.Models;
+﻿namespace JobForge.DbModels;
 
-public class ChatMessage
+public class ChatMessageDto
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid SenderId { get; set; }

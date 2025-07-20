@@ -16,139 +16,165 @@ namespace JobForge.Services
             _context = context;
         }
 
-        public async Task<IntershipDto> CreateInternshipAsync(IntershipDto internshipDto, Guid authorId)
+        public async Task<Guid> CreateInternshipAsync(InternshipDto dto, Guid authorId)
+    {
+        var internship = new Internship
         {
-            var internship = new Internship
+            Id = Guid.NewGuid(),
+            AuthorId = authorId,
+            Title = dto.Title,
+            Description = dto.Description,
+            CompanyName = dto.CompanyName,
+            Locations = dto.Locations.Select(l => new InternshipLocation
             {
                 Id = Guid.NewGuid(),
-                Title = internshipDto.Title,
-                Description = internshipDto.Description,
-                StartDate = internshipDto.StartDate,
-                EndDate = internshipDto.EndDate,
-                AuthorId = authorId,       
-                Salary = internshipDto.Salary
-            };
+                City = l.City,
+                Country = l.Country
+            }).ToList(),
+            IsArchived = dto.IsArchived,
+            StartDate = dto.StartDate,
+            EndDate = dto.EndDate,
+            Duration = dto.Duration,
+            EmploymentType = dto.EmploymentType,
+            Stipend = dto.Stipend,
+            Requirements = dto.Requirements,
+            Benefits = dto.Benefits,
+            ContactEmail = dto.ContactEmail
+        };
 
-            _context.Internships.Add(internship);
-            await _context.SaveChangesAsync();
+        _context.Internships.Add(internship);
+        await _context.SaveChangesAsync();
+        return internship.Id;
+    }
 
-            internshipDto = new IntershipDto
-            {
-                Title = internship.Title,
-                Description = internship.Description,
-                StartDate = internship.StartDate,
-                EndDate = internship.EndDate,
-                Salary = internship.Salary
-            };
+    public async Task<bool> UpdateInternshipAsync(Guid id, InternshipDto dto, Guid authorId)
+    {
+        var internship = await _context.Internships.Include(i => i.Locations).FirstOrDefaultAsync(i => i.Id == id && i.AuthorId == authorId);
+        if (internship == null || !internship.IsArchived)
+            return false;
 
-            return internshipDto;
-        }
+        internship.Title = dto.Title;
+        internship.Description = dto.Description;
+        internship.CompanyName = dto.CompanyName;
 
-        public async Task<IntershipDto?> GetInternshipByIdAsync(Guid id)
+        // Usuń stare lokalizacje i dodaj nowe
+        _context.InternshipLocations.RemoveRange(internship.Locations);
+        internship.Locations = dto.Locations.Select(l => new InternshipLocation
         {
-            var entity = await _context.Internships.FindAsync(id);
-            if (entity == null) return null;
+            Id = Guid.NewGuid(),
+            City = l.City,
+            Country = l.Country
+        }).ToList();
 
-            return new IntershipDto
-            {
-                Title = entity.Title,
-                Description = entity.Description,
-                StartDate = entity.StartDate,
-                EndDate = entity.EndDate,
-                Salary = entity.Salary
-            };
-        }
+        internship.IsArchived = dto.IsArchived;
+        internship.StartDate = dto.StartDate;
+        internship.EndDate = dto.EndDate;
+        internship.Duration = dto.Duration;
+        internship.EmploymentType = dto.EmploymentType;
+        internship.Stipend = dto.Stipend;
+        internship.Requirements = dto.Requirements;
+        internship.Benefits = dto.Benefits;
+        internship.ContactEmail = dto.ContactEmail;
 
-        public async Task<List<IntershipDto>> GetAllInternshipsAsync()
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ToggleArchiveStatusAsync(Guid id, Guid authorId)
+    {
+        var internship = await _context.Internships.FirstOrDefaultAsync(i => i.Id == id && i.AuthorId == authorId);
+        if (internship == null)
+            return false;
+
+        internship.IsArchived = !internship.IsArchived;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<Internship>> GetInternshipsByAuthorAsync(Guid authorId)
+    {
+        return await _context.Internships
+            .Include(i => i.Locations)
+            .Where(i => i.AuthorId == authorId)
+            .ToListAsync();
+    }
+
+    public async Task<List<InternshipApplication>> GetApplicationsForInternshipAsync(Guid internshipId, Guid authorId)
+    {
+        var internship = await _context.Internships.FirstOrDefaultAsync(i => i.Id == internshipId && i.AuthorId == authorId);
+        if (internship == null)
+            return null;
+
+        return await _context.InternshipApplications.Where(a => a.InternshipId == internshipId).ToListAsync();
+    }
+
+    public async Task<bool> ReviewInternshipApplicationAsync(Guid applicationId, string status, Guid reviewerId)
+    {
+        // Pobierz aplikację
+        var application = await _context.InternshipApplications
+            .FirstOrDefaultAsync(a => a.Id == applicationId);
+
+        if (application == null)
+            return false;
+
+        // Pobierz staż powiązany z aplikacją
+        var internship = await _context.Internships
+            .FirstOrDefaultAsync(i => i.Id == application.InternshipId);
+
+        if (internship == null || internship.AuthorId != reviewerId)
+            return false;
+
+        // Zakładam, że w InternshipApplication jest pole Status typu string
+        application.Status = status;
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+
+    public async Task<bool> ApplyForInternshipAsync(InternshipApplicationDto dto, Guid userId)
+    {
+        var internship = await _context.Internships.FirstOrDefaultAsync(i => i.Id == dto.InternshipId && !i.IsArchived);
+        if (internship == null)
+            return false;
+
+        var application = new InternshipApplication
         {
-            return await _context.Internships
-                .Select(i => new IntershipDto
-                {
-                    Title = i.Title,
-                    Description = i.Description,
-                    StartDate = i.StartDate,
-                    EndDate = i.EndDate,
-                    Salary = i.Salary
-                })
-                .ToListAsync();
-        }
+            InternshipId = dto.InternshipId,
+            UserId = userId,
+            ApplicantName = dto.ApplicantName,
+            ContactEmail = dto.ContactEmail,
+            ContactPhone = dto.ContactPhone,
+            CoverLetter = dto.CoverLetter,
+            AppliedAt = DateTime.UtcNow,
+            Status = "Pending" // jeśli masz status w modelu
+        };
 
-        
-        public async Task<bool> DeleteInternshipAsync(Guid internshipId)
-        {
-            var internship = await _context.Internships.FindAsync(internshipId);
-            if (internship == null)
-                return false;
+        _context.InternshipApplications.Add(application);
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
-            _context.Internships.Remove(internship);
-            await _context.SaveChangesAsync();
-            return true;
-        }
+    public async Task<List<InternshipApplication>> GetUserInternshipApplicationsAsync(Guid userId)
+    {
+        return await _context.InternshipApplications
+            .Where(a => a.UserId == userId)
+            .ToListAsync();
+    }
 
-        public async Task<InternshipApplicationDto> CreateApplicationAsync(InternshipApplicationDto applicationDto, Guid userId)
-        {
-            var internshipExists = await _context.Internships.AnyAsync(i => i.Id == applicationDto.InternshipId);
-            if (!internshipExists)
-            {
-                throw new KeyNotFoundException($"Internship with ID '{applicationDto.InternshipId}' not found.");
-            }
+    public async Task<List<Internship>> GetAllAvailableInternshipsAsync()
+    {
+        return await _context.Internships
+            .Include(i => i.Locations)
+            .Where(i => !i.IsArchived)
+            .ToListAsync();
+    }
 
-            var application = new InternshipApplication
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                InternshipId = applicationDto.InternshipId,
-                AppliedAt = DateTime.UtcNow
-            };
-
-            _context.InternshipApplications.Add(application);
-            await _context.SaveChangesAsync();
-
-            return new InternshipApplicationDto
-            {
-                InternshipId = application.InternshipId
-            };
-        }
-
-        public async Task<List<InternshipApplicationDto>> GetApplicationsByInternshipIdAsync(Guid internshipId)
-        {
-            var internshipExists = await _context.Internships.AnyAsync(i => i.Id == internshipId);
-            if (!internshipExists)
-                throw new KeyNotFoundException($"Internship with ID '{internshipId}' not found.");
-
-            return await _context.InternshipApplications
-                .Where(app => app.InternshipId == internshipId)
-                .Select(app => new InternshipApplicationDto
-                {
-                    InternshipId = app.InternshipId,
-                })
-                .ToListAsync();
-        }
-        
-        public async Task<IEnumerable<InternshipApplication>> GetApplicationsAsync(Guid? internshipId = null)
-        {
-            var query = _context.InternshipApplications.AsQueryable();
-
-            if (internshipId.HasValue)
-            {
-                query = query.Where(a => a.InternshipId == internshipId.Value);
-            }
-
-            return await query.ToListAsync();
-        }
-
-
-
-
-        public async Task<bool> DeleteApplicationAsync(Guid applicationId)
-        {
-            var application = await _context.InternshipApplications.FindAsync(applicationId);
-            if (application == null)
-                return false;
-
-            _context.InternshipApplications.Remove(application);
-            await _context.SaveChangesAsync();
-            return true;
-        }
+    public async Task<Internship> GetInternshipDetailsAsync(Guid id)
+    {
+        return await _context.Internships
+            .Include(i => i.Locations)
+            .FirstOrDefaultAsync(i => i.Id == id && !i.IsArchived);
+    }
     }
 }

@@ -1,64 +1,29 @@
-﻿using JobForge.Data;
-using JobForge.Models;
+﻿using JobForge.DbModels;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-
-namespace JobForge.Hubs;
 
 public class ChatHub : Hub
 {
-    private readonly AppDbContext _context;
+    private readonly IChatService _chatService;
 
-    public ChatHub(AppDbContext context)
+    public ChatHub(IChatService chatService)
     {
-        _context = context;
+        _chatService = chatService;
     }
 
-    public async Task SendMessage(Guid toUserId, string message, string? fileUrl = null)
+    // Metoda wywoływana przez klienta do wysłania wiadomości
+    public async Task SendMessage(ChatMessageDto message)
     {
-        var senderId = Guid.Parse(Context.UserIdentifier!);
+        // Zapisz wiadomość w bazie
+        await _chatService.SaveMessageAsync(message);
 
-        if (senderId == toUserId)
-            throw new HubException("You cannot send a message to yourself.");
+        // Wyślij wiadomość do odbiorcy (jeśli jest online)
+        await Clients.User(message.ReceiverId.ToString())
+            .SendAsync("ReceiveMessage", message);
 
-        // Ustal kolejność FirstUser i SecondUser, aby mieć unikalną konwersację
-        var orderedUsers = new[] { senderId, toUserId }.OrderBy(x => x).ToArray();
-        var firstUser = orderedUsers[0];
-        var secondUser = orderedUsers[1];
-
-        // Sprawdź czy istnieje link między tymi użytkownikami
-        var link = await _context.ChatUserLinks
-            .FirstOrDefaultAsync(l => l.FirstUser == firstUser && l.SecoundUser == secondUser);
-
-        if (link == null)
-        {
-            link = new ChatUserLink
-            {
-                FirstUser = firstUser,
-                SecoundUser = secondUser
-            };
-            _context.ChatUserLinks.Add(link);
-            await _context.SaveChangesAsync();
-        }
-
-        var chatMessage = new ChatMessage
-        {
-            SenderId = senderId,
-            ReceiverId = toUserId,
-            Content = message,
-            FileUrl = fileUrl,
-            SentAt = DateTime.UtcNow
-        };
-
-        _context.ChatMessages.Add(chatMessage);
-        await _context.SaveChangesAsync();
-
-        await Clients.User(toUserId.ToString()).SendAsync("ReceiveMessage", new
-        {
-            From = senderId,
-            Content = message,
-            FileUrl = fileUrl,
-            SentAt = chatMessage.SentAt
-        });
+        // Możesz też wysłać do nadawcy potwierdzenie
+        await Clients.Caller.SendAsync("MessageSent", message);
     }
+
+    // Można override metody OnConnectedAsync, by np. logować połączenia, 
+    // lub mapować użytkownika do connectionId (jeśli chcesz targetować po connection)
 }

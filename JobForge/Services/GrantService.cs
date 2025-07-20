@@ -14,57 +14,79 @@ public class GrantService : IGrantService
         _context = context;
     }
 
-    public async Task<GrantDto> CreateGrantAsync(GrantDto dto, Guid authorId)
+    public async Task<Guid> CreateGrantAsync(GrantDto dto, Guid authorId)
     {
         var grant = new Grant
         {
             Id = Guid.NewGuid(),
             Title = dto.Title,
             Description = dto.Description,
+            Amount = dto.Amount,
+            ApplicationDeadline = dto.ApplicationDeadline ?? dto.ApplicationEndDate,
             ApplicationStartDate = dto.ApplicationStartDate,
             ApplicationEndDate = dto.ApplicationEndDate,
-            Amount = dto.Amount,
+            IsArchived = dto.IsArchived,
+            FundingOrganization = dto.FundingOrganization,
+            EligibilityCriteria = dto.EligibilityCriteria ?? string.Empty,
+            ApplicationProcess = dto.ApplicationProcess ?? string.Empty,
+            ContactEmail = dto.ContactEmail ?? string.Empty,
+            Region = dto.Region ?? string.Empty,
             AuthorId = authorId
         };
 
         _context.Grants.Add(grant);
         await _context.SaveChangesAsync();
-
-        return dto;
+        return grant.Id;
     }
 
-    public async Task<GrantDto?> GetGrantByIdAsync(Guid id)
+    public async Task<bool> UpdateGrantAsync(Guid id, GrantDto dto, Guid authorId)
     {
-        var g = await _context.Grants.FindAsync(id);
-        if (g == null) return null;
+        var grant = await _context.Grants.FirstOrDefaultAsync(g => g.Id == id && g.AuthorId == authorId && g.IsArchived);
 
-        return new GrantDto
-        {
-            Title = g.Title,
-            Description = g.Description,
-            ApplicationStartDate = g.ApplicationStartDate,
-            ApplicationEndDate = g.ApplicationEndDate,
-            Amount = g.Amount
-        };
+        if (grant == null) return false;
+
+        grant.Title = dto.Title;
+        grant.Description = dto.Description;
+        grant.Amount = dto.Amount;
+        grant.ApplicationDeadline = dto.ApplicationDeadline ?? dto.ApplicationEndDate;
+        grant.ApplicationStartDate = dto.ApplicationStartDate;
+        grant.ApplicationEndDate = dto.ApplicationEndDate;
+        grant.FundingOrganization = dto.FundingOrganization;
+        grant.EligibilityCriteria = dto.EligibilityCriteria ?? string.Empty;
+        grant.ApplicationProcess = dto.ApplicationProcess ?? string.Empty;
+        grant.ContactEmail = dto.ContactEmail ?? string.Empty;
+        grant.Region = dto.Region ?? string.Empty;
+
+        await _context.SaveChangesAsync();
+        return true;
     }
 
-    public async Task<List<GrantDto>> GetAllGrantsAsync()
+    public async Task<bool> ToggleArchiveStatusAsync(Guid grantId, Guid authorId)
     {
-        return await _context.Grants.Select(g => new GrantDto
-        {
-            Title = g.Title,
-            Description = g.Description,
-            ApplicationStartDate = g.ApplicationStartDate,
-            ApplicationEndDate = g.ApplicationEndDate,
-            Amount = g.Amount
-        }).ToListAsync();
+        var grant = await _context.Grants.FirstOrDefaultAsync(g => g.Id == grantId && g.AuthorId == authorId);
+
+        if (grant == null) return false;
+
+        grant.IsArchived = !grant.IsArchived;
+        await _context.SaveChangesAsync();
+        return true;
     }
 
-    public async Task<GrantApplication> CreateApplicationAsync(GrantApplicationDto dto, Guid userId)
+    public async Task<List<Grant>> GetAllAvailableGrantsAsync()
     {
-        var exists = await _context.Grants.AnyAsync(g => g.Id == dto.GrantId);
-        if (!exists)
-            throw new KeyNotFoundException($"Grant with ID '{dto.GrantId}' not found.");
+        return await _context.Grants
+            .Where(g => !g.IsArchived && DateTime.UtcNow >= g.ApplicationStartDate && DateTime.UtcNow <= g.ApplicationEndDate)
+            .ToListAsync();
+    }
+
+    public async Task<Grant?> GetGrantDetailsAsync(Guid grantId)
+    {
+        return await _context.Grants.FirstOrDefaultAsync(g => g.Id == grantId && !g.IsArchived);
+    }
+
+    public async Task<bool> ApplyForGrantAsync(GrantApplicationDto dto, Guid userId)
+    {
+        if (!await _context.Grants.AnyAsync(g => g.Id == dto.GrantId && !g.IsArchived)) return false;
 
         var app = new GrantApplication
         {
@@ -72,48 +94,56 @@ public class GrantService : IGrantService
             GrantId = dto.GrantId,
             UserId = userId,
             AppliedAt = DateTime.UtcNow,
-            Requirements = dto.Requirements
+            Requirements = dto.Requirements,
+            Justification = dto.Justification,
+            RequestedAmount = dto.RequestedAmount,
+            ApplicantName = dto.ApplicantName,
+            ContactEmail = dto.ContactEmail,
+            ContactPhone = dto.ContactPhone,
+            Region = dto.Region
         };
 
         _context.GrantApplications.Add(app);
         await _context.SaveChangesAsync();
-
-        return app;
+        return true;
     }
 
-    public async Task<IEnumerable<GrantApplication>> GetApplicationsAsync(Guid? grantId = null)
-    {
-        var query = _context.GrantApplications.AsQueryable();
-        if (grantId.HasValue)
-            query = query.Where(a => a.GrantId == grantId.Value);
-
-        return await query.ToListAsync();
-    }
-
-    public async Task<List<GrantApplication>> GetApplicationsByGrantIdAsync(Guid grantId)
+    public async Task<List<GrantApplication>> GetUserGrantApplicationsAsync(Guid userId)
     {
         return await _context.GrantApplications
-            .Where(a => a.GrantId == grantId)
+            .Where(a => a.UserId == userId)
             .ToListAsync();
     }
 
-    public async Task<bool> DeleteGrantAsync(Guid id)
+    public async Task<List<GrantApplication>> GetGrantApplicationsForGrantAsync(Guid grantId, Guid employerId)
     {
-        var grant = await _context.Grants.FindAsync(id);
-        if (grant == null) return false;
+        var grant = await _context.Grants.FirstOrDefaultAsync(g => g.Id == grantId && g.AuthorId == employerId);
+        if (grant == null) return new List<GrantApplication>();
 
-        _context.Grants.Remove(grant);
+        return await _context.GrantApplications.Where(a => a.GrantId == grantId).ToListAsync();
+    }
+
+    public async Task<bool> ReviewGrantApplicationAsync(Guid applicationId, string status, Guid reviewerId)
+    {
+        var application = await _context.GrantApplications.FindAsync(applicationId);
+        if (application == null)
+            return false;
+
+        var grant = await _context.Grants.FindAsync(application.GrantId);
+        if (grant == null || grant.AuthorId != reviewerId)
+            return false;
+
+        application.Status = status;
         await _context.SaveChangesAsync();
         return true;
     }
 
-    public async Task<bool> DeleteApplicationAsync(Guid id)
+    public async Task<List<Grant>> GetMyCreatedGrantsAsync(Guid authorId)
     {
-        var app = await _context.GrantApplications.FindAsync(id);
-        if (app == null) return false;
-
-        _context.GrantApplications.Remove(app);
-        await _context.SaveChangesAsync();
-        return true;
+        return await _context.Grants
+            .Where(g => g.AuthorId == authorId)
+            .ToListAsync();
     }
+
+
 }

@@ -20,119 +20,96 @@ namespace JobForge.Controllers
             _service = service;
         }
 
-        private Guid GetUserIdFromToken()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-                throw new UnauthorizedAccessException("Brak lub niepoprawny userId w tokenie");
+        private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            return userId;
-        }
+  
+    [HttpPost("company/internship/create")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> CreateInternship([FromBody] InternshipDto dto)
+    {
+        var id = await _service.CreateInternshipAsync(dto, GetUserId());
+        return Ok(new { InternshipId = id });
+    }
 
-        [HttpPost("create")]
-        public async Task<IActionResult> CreateInternship([FromBody] IntershipDto dto)
-        {
-            try
-            {
-                var userId = GetUserIdFromToken();
-                var created = await _service.CreateInternshipAsync(dto, userId);
-                return CreatedAtAction(nameof(GetInternships), new { id = created.Title }, created);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(ex.Message);
-            }
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteInternship(Guid id)
-        {
-            var deleted = await _service.DeleteInternshipAsync(id);
-            if (!deleted) return NotFound();
-            return NoContent();
-        }
-
-        [HttpPost("applications/create")]
-        public async Task<IActionResult> CreateApplication([FromBody] InternshipApplicationDto dto)
-        {
-            try
-            {
-                var userId = GetUserIdFromToken();
-                var created = await _service.CreateApplicationAsync(dto, userId);
-                return CreatedAtAction(nameof(GetApplications), new { id = created.InternshipId }, created);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(ex.Message);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new
-                {
-                    error = "InternshipNotFound",
-                    message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    error = "ServerError",
-                    message = "An unexpected error occurred."
-                });
-            }
-        }
-        
-        [HttpGet("{id?}")]
-        public async Task<IActionResult> GetInternships([FromQuery] Guid? id = null)
-        {
-            if (id.HasValue)
-            {
-                var internship = await _service.GetInternshipByIdAsync(id.Value);
-                if (internship == null)
-                    return NotFound(new { error = "NotFound", message = "Internship not found." });
-
-                return Ok(internship);
-            }
-
-            var all = await _service.GetAllInternshipsAsync();
-            return Ok(all);
-        }
-
-        
-        // [HttpGet("{id}")]
-        // public IActionResult GetInternship(Guid id)
-        // {
-        //     return Ok();
-        // }
+   
+    [HttpPut("company/internship/{id}")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> UpdateInternship(Guid id, [FromBody] InternshipDto dto)
+    {
+        var result = await _service.UpdateInternshipAsync(id, dto, GetUserId());
+        return result ? Ok() : Forbid();
+    }
 
 
-        [HttpDelete("applications/{id}")]
-        public async Task<IActionResult> DeleteApplication(Guid id)
-        {
-            var deleted = await _service.DeleteApplicationAsync(id);
-            if (!deleted) return NotFound();
-            return NoContent(); 
-        }
-        
-        [HttpGet("applications/{internshipId?}")]
-        public async Task<IActionResult> GetApplications([FromQuery] Guid? internshipId = null)
-        {
-            var applications = await _service.GetApplicationsAsync(internshipId);
-            return Ok(applications);
-        }
-
-        
+    [HttpPatch("company/internship/archive-toggle/{id}")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> ToggleArchive(Guid id)
+    {
+        var result = await _service.ToggleArchiveStatusAsync(id, GetUserId());
+        return result ? Ok() : Forbid();
+    }
 
 
+    [HttpGet("company/internship/my")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> GetOwnInternships()
+    {
+        var internships = await _service.GetInternshipsByAuthorAsync(GetUserId());
+        return Ok(internships);
+    }
 
-        
-        
 
-        // [HttpGet("applications/{id}")]
-        // public IActionResult GetApplication(Guid id)
-        // {
-        //     return Ok(); 
-        // }
+    [HttpGet("company/internship/applications/{internshipId}")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> GetApplications(Guid internshipId)
+    {
+        var apps = await _service.GetApplicationsForInternshipAsync(internshipId, GetUserId());
+        return Ok(apps);
+    }
+
+ 
+    [HttpPatch("applications/{applicationId}/review")]
+    [Authorize(Roles = "Company, PublicFacility, Admin")]
+    public async Task<IActionResult> ReviewApplication(Guid applicationId, [FromQuery] string status)
+    {
+        var result = await _service.ReviewInternshipApplicationAsync(applicationId, status, GetUserId());
+        return result ? Ok(new { Message = "Status updated." }) : Forbid();
+    }
+
+    
+    [HttpPost("user/internship/apply")]
+    [Authorize]
+    public async Task<IActionResult> ApplyToInternship([FromBody] InternshipApplicationDto dto)
+    {
+        var result = await _service.ApplyForInternshipAsync(dto, GetUserId());
+        return result ? Ok(new { Message = "Application submitted." }) : BadRequest("Internship not found or archived.");
+    }
+
+
+    [HttpGet("user/internship/my-applications")]
+    [Authorize]
+    public async Task<IActionResult> GetUserApplications()
+    {
+        var apps = await _service.GetUserInternshipApplicationsAsync(GetUserId());
+        return Ok(apps);
+    }
+
+    
+    [HttpGet("user/internship/all")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAvailableInternships()
+    {
+        var internships = await _service.GetAllAvailableInternshipsAsync();
+        return Ok(internships);
+    }
+
+ 
+    [HttpGet("user/internship/details/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetInternshipDetails(Guid id)
+    {
+        var internship = await _service.GetInternshipDetailsAsync(id);
+        return internship != null ? Ok(internship) : NotFound();
+    }
     }
 }

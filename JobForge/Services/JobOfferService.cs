@@ -15,19 +15,21 @@ public class JobOfferService : IJobOfferService
         _context = context;
     }
 
-    public async Task<int> CreateJobOfferAsync(JobOfferDto dto)
+    public async Task<bool> AddJobOfferAsync(JobOfferDto dto, Guid userId)
     {
+        if (dto == null) return false;
+
         var jobOffer = new JobOffer
         {
-            UserId = dto.UserId,
+            UserId = userId,
+            IsArchived = dto.IsArchived,
             JobTitle = dto.JobTitle,
             Description = dto.Description,
-            Location = dto.Location,
             EmploymentType = dto.EmploymentType,
             SalaryFrom = dto.SalaryFrom,
             SalaryTo = dto.SalaryTo,
-            PostedDate = dto.PostedDate.ToUniversalTime(),
-            ExpirationDate = dto.ExpirationDate.ToUniversalTime(),
+            PostedDate = dto.PostedDate,
+            ExpirationDate = dto.ExpirationDate,
             CompanyName = dto.CompanyName,
             Category = dto.Category,
             ExperienceLevel = dto.ExperienceLevel,
@@ -35,82 +37,183 @@ public class JobOfferService : IJobOfferService
             PostViews = dto.PostViews,
             Applicants = dto.Applicants,
             ActiveWorkers = dto.ActiveWorkers,
-            Technologies = dto.Technologies?
-                .Select(t => new JobOfferTechnology { Name = t.Name })
-                .ToList() ?? new List<JobOfferTechnology>()
-
-
+            Locations = dto.Locations.Select(loc => new JobOfferLocation
+            {
+                LocationType = loc.LocationType,
+                City = loc.City,
+                Country = loc.Country
+            }).ToList(),
+            Technologies = dto.Technologies.Select(tech => new JobOfferTechnology
+            {
+                Name = tech.Name,
+                ExperienceLevel = tech.ExperienceLevel,
+                Description = tech.Description
+            }).ToList()
         };
 
         _context.JobOffers.Add(jobOffer);
-        await _context.SaveChangesAsync();
-
-        return jobOffer.Id;
+        var result = await _context.SaveChangesAsync();
+        return result > 0;
     }
+    
+    public async Task<List<object>> GetAllJobOffersAsync()
+    {
+        return await _context.JobOffers
+            .Include(j => j.Locations)
+            .Include(j => j.Technologies)
+            .Where(j => !j.IsArchived)  // Tylko nie zarchiwizowane oferty
+            .Select(j => new
+            {
+                JobOfferId = j.Id,
+                JobOffer = new JobOfferDto
+                {
+                    JobTitle = j.JobTitle,
+                    Description = j.Description,
+                    EmploymentType = j.EmploymentType,
+                    SalaryFrom = j.SalaryFrom,
+                    SalaryTo = j.SalaryTo,
+                    ExpirationDate = j.ExpirationDate,
+                    CompanyName = j.CompanyName,
+                    ExperienceLevel = j.ExperienceLevel,
+                    Locations = j.Locations.Select(l => new JobOfferLocationDto
+                    {
+                        Id = l.Id,
+                        JobOfferId = l.JobOfferId,
+                        LocationType = l.LocationType,
+                        City = l.City,
+                        Country = l.Country
+                    }).ToList(),
+                    Technologies = j.Technologies.Select(t => new JobOfferTechnologyDto
+                    {
+                        Id = t.Id,
+                        JobOfferId = t.JobOfferId,
+                        Name = t.Name,
+                        ExperienceLevel = t.ExperienceLevel,
+                        Description = t.Description
+                    }).ToList()
+                }
+            })
+            .ToListAsync<object>();
+    }
+
     
     public async Task<JobOfferDto?> GetJobOfferByIdAsync(int id)
     {
-        var jobOffer = await _context.JobOffers
-            .Where(j => j.Id == id)
-            .Select(j => new JobOfferDto
+        var offer = await _context.JobOffers
+            .Include(o => o.Locations)
+            .Include(o => o.Technologies)
+            .FirstOrDefaultAsync(o => o.Id == id && !o.IsArchived);
+
+        if (offer == null)
+            return null;
+
+        return new JobOfferDto
+        {
+            IsArchived = offer.IsArchived,
+            JobTitle = offer.JobTitle,
+            Description = offer.Description,
+            EmploymentType = offer.EmploymentType,
+            SalaryFrom = offer.SalaryFrom,
+            SalaryTo = offer.SalaryTo,
+            PostedDate = offer.PostedDate,
+            ExpirationDate = offer.ExpirationDate,
+            CompanyName = offer.CompanyName,
+            Category = offer.Category,
+            ExperienceLevel = offer.ExperienceLevel,
+            ApplyLink = offer.ApplyLink,
+            PostViews = offer.PostViews,
+            Applicants = offer.Applicants,
+            ActiveWorkers = offer.ActiveWorkers,
+            Locations = offer.Locations.Select(l => new JobOfferLocationDto
             {
-                Id = j.Id,
-                UserId = j.UserId,
-                JobTitle = j.JobTitle,
-                Description = j.Description,
-                Location = j.Location,
-                EmploymentType = j.EmploymentType,
-                SalaryFrom = j.SalaryFrom,
-                SalaryTo = j.SalaryTo,
-                PostedDate = DateTime.SpecifyKind(j.PostedDate, DateTimeKind.Utc),
-                ExpirationDate = DateTime.SpecifyKind(j.ExpirationDate, DateTimeKind.Utc),
-                CompanyName = j.CompanyName,
-                Category = j.Category,
-                ExperienceLevel = j.ExperienceLevel,
-                ApplyLink = j.ApplyLink,
-                PostViews = j.PostViews,
-                Applicants = j.Applicants,
-                ActiveWorkers = j.ActiveWorkers,
-                Technologies = j.Technologies.Select(t => new JobOfferTechnologyDto
-                {
-                    Name = t.Name
-                }).ToList()
-            })
+                Id = l.Id,
+                JobOfferId = l.JobOfferId,
+                LocationType = l.LocationType,
+                City = l.City,
+                Country = l.Country
+            }).ToList(),
+            Technologies = offer.Technologies.Select(t => new JobOfferTechnologyDto
+            {
+                Id = t.Id,
+                JobOfferId = t.JobOfferId,
+                Name = t.Name,
+                ExperienceLevel = t.ExperienceLevel,
+                Description = t.Description
+            }).ToList()
+        };
+    }
+    
+    public async Task<(bool, string)> ApplyToJobOfferAsync(int jobOfferId, Guid userId)
+    {
+        var jobOffer = await _context.JobOffers
+            .FirstOrDefaultAsync(j => j.Id == jobOfferId && !j.IsArchived);
+
+        if (jobOffer == null)
+            return (false, "Job offer not found or archived.");
+        
+        var userCv = await _context.GeneratedCVs
+            .Where(cv => cv.UserId == userId)
             .FirstOrDefaultAsync();
 
-        return jobOffer;
-    }
-    
-    public async Task<bool> ArchiveJobOfferAsync(int jobOfferId, bool isArchived)
-    {
-        var jobOffer = await _context.JobOffers.FindAsync(jobOfferId);
-        if (jobOffer == null)
-            return false;
+        if (userCv == null)
+            return (false, "User CV not found.");
+        
+        var existingApplication = await _context.JobApplications
+            .Where(app => app.JobOfferId == jobOfferId && app.UserId == userId)
+            .Where(app => app.Status != "Rejected") // tylko te, które nie są odrzucone
+            .FirstOrDefaultAsync();
 
-        jobOffer.IsArchived = isArchived;
+        if (existingApplication != null)
+            return (false, "You have already applied to this job offer and your application is not rejected.");
+        
+        var application = new JobApplication
+        {
+            JobOfferId = jobOfferId,
+            CvId = userCv.Id,
+            UserId = userId,
+            AppliedAt = DateTime.UtcNow,
+            Status = "Pending"
+        };
+
+        _context.JobApplications.Add(application);
         await _context.SaveChangesAsync();
-        return true;
+
+        return (true, "Application submitted successfully.");
     }
+
+
 
     
-    public async Task<bool> DeleteJobOfferAsync(int jobOfferId)
-    {
-        var jobOffer = await _context.JobOffers
-            .Include(j => j.Technologies)
-            .FirstOrDefaultAsync(j => j.Id == jobOfferId);
+    // public async Task<bool> ArchiveJobOfferAsync(int jobOfferId, bool isArchived)
+    // {
+    //     var jobOffer = await _context.JobOffers.FindAsync(jobOfferId);
+    //     if (jobOffer == null)
+    //         return false;
+    //
+    //     jobOffer.IsArchived = isArchived;
+    //     await _context.SaveChangesAsync();
+    //     return true;
+    // }
 
-        if (jobOffer == null)
-            return false;
-
-        // Usuń technologie powiązane (jeśli brak kaskady)
-        _context.JobOfferTechnologies.RemoveRange(jobOffer.Technologies);
-
-        // Usuń ogłoszenie
-        _context.JobOffers.Remove(jobOffer);
-
-        await _context.SaveChangesAsync();
-        return true;
-    }
+    
+    // public async Task<bool> DeleteJobOfferAsync(int jobOfferId)
+    // {
+    //     var jobOffer = await _context.JobOffers
+    //         .Include(j => j.Technologies)
+    //         .FirstOrDefaultAsync(j => j.Id == jobOfferId);
+    //
+    //     if (jobOffer == null)
+    //         return false;
+    //
+    //     // Usuń technologie powiązane (jeśli brak kaskady)
+    //     _context.JobOfferTechnologies.RemoveRange(jobOffer.Technologies);
+    //
+    //     // Usuń ogłoszenie
+    //     _context.JobOffers.Remove(jobOffer);
+    //
+    //     await _context.SaveChangesAsync();
+    //     return true;
+    // }
 
     
     // public async Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId)
@@ -146,20 +249,20 @@ public class JobOfferService : IJobOfferService
     {
         var exists = await _context.FavoriteJobOffers
             .AnyAsync(f => f.UserId == userId && f.JobOfferId == jobOfferId);
-
+    
         if (exists) return;
-
+    
         var favorite = new FavoriteJobOffer
         {
             UserId = userId,
             JobOfferId = jobOfferId,
             AddedAt = DateTime.UtcNow
         };
-
+    
         _context.FavoriteJobOffers.Add(favorite);
         await _context.SaveChangesAsync();
     }
-
+    
     public async Task<List<FavoriteJobOfferDetailDto>> GetFavoritesByUserAsync(Guid userId)
     {
         return await _context.FavoriteJobOffers
@@ -176,6 +279,89 @@ public class JobOfferService : IJobOfferService
                 })
             .ToListAsync();
     }
+    
+    public async Task<List<JobApplicationsDto>> GetUserJobApplicationsAsync(Guid userId)
+    {
+        return await _context.JobApplications
+            .Where(app => app.UserId == userId)
+            .Include(app => app.JobOffer)
+            .OrderByDescending(app => app.AppliedAt)
+            .Select(app => new JobApplicationsDto
+            {
+                Id = app.Id,
+                JobOfferId = app.JobOfferId,
+                JobTitle = app.JobOffer.JobTitle,
+                CompanyName = app.JobOffer.CompanyName,
+                AppliedAt = app.AppliedAt,
+                Status = app.Status
+            })
+            .ToListAsync();
+    }
+    
+    public async Task<bool> ArchiveJobOfferAsync(int jobOfferId, bool isArchived)
+    {
+        var jobOffer = await _context.JobOffers.FindAsync(jobOfferId);
+        if (jobOffer == null)
+            return false;
+
+        jobOffer.IsArchived = isArchived;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+    
+    public async Task<bool> ReviewApplicationAsync(int applicationId, string newStatus, Guid reviewerUserId)
+    {
+        var application = await _context.JobApplications
+            .FirstOrDefaultAsync(a => a.Id == applicationId);
+
+        if (application == null)
+            return false;
+
+        var jobOffer = await _context.JobOffers
+            .FirstOrDefaultAsync(o => o.Id == application.JobOfferId);
+
+        if (jobOffer == null || jobOffer.UserId != reviewerUserId)
+            return false;
+
+        application.Status = newStatus;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<JobApplication>> GetApplicationsWithCVsForOfferAsync(int jobOfferId, Guid employerId)
+    {
+        var offer = await _context.JobOffers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(j => j.Id == jobOfferId && j.UserId == employerId);
+
+        if (offer == null)
+            return new List<JobApplication>();
+
+        var applications = await _context.JobApplications
+            .Where(a => a.JobOfferId == jobOfferId)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.Educations)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.WorkExperiences)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.Languages)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.SoftSkills)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.TechnicalSkills)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.Interests)
+            .Include(a => a.CV)
+            .ThenInclude(cv => cv.UserCourse)
+            .ToListAsync();
+
+        return applications;
+    }
+
+
+
+
+
 
 
 }

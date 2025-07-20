@@ -1,50 +1,35 @@
 ﻿using System.Security.Claims;
-using JobForge.Data;
-using JobForge.Models;
+using JobForge.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
-namespace JobForge.Controllers;
-
-[Route("api/[controller]")]
 [ApiController]
+[Route("api/[controller]")]
 public class ChatController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IChatService _chatService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ChatController(AppDbContext context)
+    public ChatController(IChatService chatService, IHttpContextAccessor httpContextAccessor)
     {
-        _context = context;
+        _chatService = chatService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
-    [HttpGet("chat/available")]
-    [Authorize]
-    public async Task<IActionResult> GetAvailableChatUsers()
+    private Guid GetUserId()
     {
-        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userIdString = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.Parse(userIdString!);
+    }
 
-        // Pobierz aplikacje użytkownika (czyli pracownika)
-        var userApplications = await _context.JobApplications
-            .Include(a => a.JobOffer)
-            .Where(a => a.UserId == userId)
-            .ToListAsync();
+    // GET api/chat/history/{otherUserId}
+    [HttpGet("history/{otherUserId}")]
+    public async Task<IActionResult> GetHistory(Guid otherUserId)
+    {
+        var currentUserId = GetUserId();
 
-        // Pobierz aplikacje na oferty stworzone przez użytkownika (czyli pracodawcę)
-        var employerApplications = await _context.JobApplications
-            .Include(a => a.JobOffer)
-            .Where(a => a.JobOffer.UserId == userId) // ← poprawione z CreatorId
-            .ToListAsync();
+        var messages = await _chatService.GetMessageHistoryAsync(currentUserId, otherUserId);
 
-        var conversationUsers = new HashSet<Guid>();
-
-        // pracownik —> pracodawca
-        conversationUsers.UnionWith(userApplications.Select(a => a.JobOffer.UserId)); // ← poprawione
-
-        // pracodawca —> pracownicy
-        conversationUsers.UnionWith(employerApplications.Select(a => a.UserId));
-
-        return Ok(conversationUsers);
+        return Ok(messages);
     }
 }

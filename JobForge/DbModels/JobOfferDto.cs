@@ -2,13 +2,11 @@
 
 public class JobOfferDto
 {
-    public int Id { get; set; }
-    public Guid UserId { get; set; }
     public bool IsArchived { get; set; } = false;
 
     public string JobTitle { get; set; }
     public string Description { get; set; }
-    public string Location { get; set; }
+    public List<JobOfferLocationDto> Locations { get; set; } = new();
     public string EmploymentType { get; set; }
     public decimal? SalaryFrom { get; set; }
     public decimal? SalaryTo { get; set; }

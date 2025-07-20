@@ -21,129 +21,133 @@ public class PublicFacility : IPublicFacility
         _context = context;
     }
 
-    public async Task<(bool Success, IEnumerable<string> Errors)> RegisterWithSupervisorAsync(RegisterDto dto, ClaimsPrincipal supervisorPrincipal)
+    public async Task<bool> RegisterUserAsync(ApplicationUser user, string password, Guid creatorId)
     {
-        var supervisor = await _userManager.GetUserAsync(supervisorPrincipal);
+        var creator = await _userManager.FindByIdAsync(creatorId.ToString());
+        if (creator == null || creator.CompanyId == null) return false;
 
-        if (supervisor == null || !await _userManager.IsInRoleAsync(supervisor, "PublicFacility"))
+        user.CompanyId = creator.CompanyId;
+        var result = await _userManager.CreateAsync(user, password);
+        return result.Succeeded;
+    }
+
+    public async Task<List<object>> GetUsersByCompanyIdAsync(Guid creatorId)
+    {
+        var creator = await _userManager.FindByIdAsync(creatorId.ToString());
+        if (creator == null || creator.CompanyId == null)
+            return new List<object>();
+
+        var users = await _userManager.Users
+            .Where(u => u.CompanyId == creator.CompanyId)
+            .Select(u => new
+            {
+                id = u.Id,
+                firstName = u.FirstName,
+                lastName = u.LastName,
+                supervisorId = u.SupervisorId,
+                companyId = u.CompanyId,
+                userName = u.UserName,
+                email = u.Email
+            })
+            .ToListAsync();
+
+        return users.Cast<object>().ToList();
+    }
+
+
+    public async Task<bool> AssignSupervisorAsync(Guid userId, Guid supervisorId, Guid executorId)
+    {
+        var executor = await _userManager.FindByIdAsync(executorId.ToString());
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var supervisor = await _userManager.FindByIdAsync(supervisorId.ToString());
+
+        if (executor?.CompanyId != user?.CompanyId || user.CompanyId != supervisor?.CompanyId)
+            return false;
+
+        user.SupervisorId = supervisorId;
+        await _userManager.UpdateAsync(user);
+        return true;
+    }
+
+    public async Task<object?> GetUserDetailsAsync(Guid userId, Guid executorId)
+    {
+        var executor = await _userManager.FindByIdAsync(executorId.ToString());
+        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == userId.ToString());
+
+        if (user == null || executor.CompanyId != user.CompanyId) return null;
+
+        var cv = await _context.GeneratedCVs
+            .Include(c => c.Educations)
+            .Include(c => c.WorkExperiences)
+            .Include(c => c.Languages)
+            .Include(c => c.SoftSkills)
+            .Include(c => c.TechnicalSkills)
+            .Include(c => c.Interests)
+            .Include(c => c.UserCourse)
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        var jobApps = await _context.JobApplications
+            .Where(j => j.UserId == userId)
+            .ToListAsync();
+
+        return new
         {
-            return (false, new[] { "Unauthorized: Only users with 'PublicFacility' role can register new users." });
+            UserId = user.Id,
+            CV = cv,
+            JobApplications = jobApps
+        };
+    }
+
+    public async Task<object> GetStatisticsAsync(Guid? userId, Guid executorId)
+    {
+        var executor = await _userManager.FindByIdAsync(executorId.ToString());
+        if (executor?.CompanyId == null)
+        {
+            Console.WriteLine("Unauthorized: executor or CompanyId is null");
+            return new { Error = "Unauthorized" };
         }
 
-        var user = new ApplicationUser
+        var users = _userManager.Users
+            .Where(u => u.CompanyId == executor.CompanyId);
+
+        if (userId.HasValue)
         {
-            UserName = dto.Email,
-            Email = dto.Email,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            // SupervisorId = Guid.Parse(supervisor.Id)
+            Console.WriteLine($"----Filtering for userId: {userId}");
+            users = users.Where(u => u.Id == userId.Value.ToString());
+        }
+
+        // Pobieramy userIds jako Guid
+        var userIdStrings = await users.Select(u => u.Id).ToListAsync();
+        Console.WriteLine("User Ids strings:");
+        foreach(var idStr in userIdStrings)
+        {
+            Console.WriteLine(idStr);
+        }
+        var userIds = userIdStrings.Select(Guid.Parse).ToList();
+
+        Console.WriteLine($"-----UserIds for CompanyId {executor.CompanyId}: {string.Join(", ", userIds)}");
+
+        var employedCount = await _context.EmploymentContracts
+            .CountAsync(e => userIds.Contains(e.UserId) && e.Status == "Accepted");
+        Console.WriteLine($"----Employed count: {employedCount}");
+
+        var pendingJobs = await _context.JobApplications
+            .CountAsync(j => userIds.Contains(j.UserId) && j.Status == "Pending");
+        Console.WriteLine($"----Pending job applications count: {pendingJobs}");
+
+        var completedCourses = await _context.UserCourses
+            .CountAsync(c => userIds.Contains(c.UserId) && c.isCompleted);
+        Console.WriteLine($"----Completed courses count: {completedCourses}");
+
+        return new
+        {
+            Employed = employedCount,
+            PendingJobApplications = pendingJobs,
+            CompletedCourses = completedCourses
         };
-
-        var result = await _userManager.CreateAsync(user, dto.Password);
-        if (!result.Succeeded)
-            return (false, result.Errors.Select(e => e.Description));
-
-        const string defaultRole = "free";
-        if (!await _roleManager.RoleExistsAsync(defaultRole))
-            await _roleManager.CreateAsync(new IdentityRole(defaultRole));
-
-        await _userManager.AddToRoleAsync(user, defaultRole);
-
-        return (true, null);
     }
-    
-    // public async Task<object> GetUserCvForSupervisorAsync(Guid userId, Guid supervisorId)
-    // {
-    //     var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId.ToString());
-    //
-    //     if (user == null)
-    //         throw new KeyNotFoundException("Użytkownik nie istnieje.");
-    //
-    //     if (user.SupervisorId != supervisorId)
-    //         throw new UnauthorizedAccessException("Nie masz dostępu do tego CV.");
-    //
-    //     var personalInfo = await _context.PersonalInformations
-    //         .Include(p => p.WorkExperiences)
-    //         .Include(p => p.Educations)
-    //         .Include(p => p.Languages)
-    //         .FirstOrDefaultAsync(p => p.UserId == userId);
-    //
-    //     if (personalInfo == null)
-    //         throw new InvalidOperationException("Brak danych osobowych użytkownika.");
-    //
-    //     var result = new
-    //     {
-    //         PersonalInformation = personalInfo,
-    //         WorkExperience = personalInfo.WorkExperiences,
-    //         Education = personalInfo.Educations,
-    //         Languages = personalInfo.Languages
-    //     };
-    //
-    //     return result;
-    // }
-    
-    public async Task<IEnumerable<JobApplication>> GetUserApplicationsForSupervisorAsync(Guid userId, Guid supervisorId)
-    {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == userId.ToString());
 
-        if (user == null)
-            throw new KeyNotFoundException("Użytkownik nie istnieje.");
 
-        if (user.SupervisorId != supervisorId)
-            throw new AuthenticationException("Nie masz dostępu do aplikacji tego użytkownika.");
 
-        var applications = await _context.JobApplications
-            .Include(a => a.JobOffer)
-            .Where(a => a.UserId == userId)
-            .ToListAsync();
-
-        return applications;
-    }
-    
-    public async Task<IEnumerable<UserCourse>> GetUserCoursesForSupervisorAsync(Guid userId, Guid supervisorId)
-    {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == userId.ToString());
-
-        if (user == null)
-            throw new KeyNotFoundException("Użytkownik nie istnieje.");
-
-        if (user.SupervisorId != supervisorId)
-            throw new AuthenticationException("Nie masz dostępu do kursów tego użytkownika.");
-
-        var courses = await _context.UserCourses
-            .Where(c => c.UserId == userId)
-            .ToListAsync();
-
-        return courses;
-    }
-    
-    // public async Task<IEnumerable<WorkExperience>> GetUserWorkExperiencesForSupervisorAsync(Guid userId, Guid supervisorId)
-    // {
-    //     var user = await _context.Users
-    //         .FirstOrDefaultAsync(u => u.Id == userId.ToString());
-    //
-    //     if (user == null)
-    //         throw new KeyNotFoundException("Użytkownik nie istnieje.");
-    //
-    //     if (user.SupervisorId != supervisorId)
-    //         throw new AuthenticationException("Nie masz dostępu do historii zatrudnienia tego użytkownika.");
-    //
-    //     var workExperiences = await _context.WorkExperiences
-    //         .Include(w => w.PersonalInformation)
-    //         .Where(w => w.UserId == userId)
-    //         .ToListAsync();
-    //
-    //     foreach (var experience in workExperiences)
-    //     {
-    //         if (experience.PersonalInformation != null)
-    //         {
-    //             experience.PersonalInformation.WorkExperiences = null;
-    //         }
-    //     }
-    //
-    //     return workExperiences;
-    // }
 
 }

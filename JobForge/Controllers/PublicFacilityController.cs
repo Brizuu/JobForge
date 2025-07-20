@@ -1,6 +1,7 @@
 ﻿using System.Security.Authentication;
 using System.Security.Claims;
 using JobForge.DbModels;
+using JobForge.Models;
 using JobForge.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace JobForge.Controllers;
 
 
 [ApiController]
+[Authorize(Roles = "PublicFacility, Admin")]
 [Route("api/[controller]")]
 public class PublicFacilityController : ControllerBase
 {
@@ -19,124 +21,49 @@ public class PublicFacilityController : ControllerBase
         _context = context;
     }
 
-    [HttpPost("register-user")]
-    [Authorize(Roles = "PublicFacility")]
-    public async Task<IActionResult> RegisterBySupervisor([FromBody] RegisterDto dto)
+    private Guid GetUserId() => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+    [HttpPost("register")]
+    public async Task<IActionResult> RegisterUser([FromBody] RegisterDto dto)
     {
-        var (success, errors) = await _context.RegisterWithSupervisorAsync(dto, User);
+        var user = new ApplicationUser
+        {
+            Email = dto.Email,
+            UserName = dto.Email, // wymagane przez Identity
+            FirstName = dto.FirstName,
+            LastName = dto.LastName
+        };
 
-        if (!success)
-            return BadRequest(new { errors });
-
-        return Ok(new { message = "User registered with supervisor and assigned to 'free' role" });
+        var success = await _context.RegisterUserAsync(user, dto.Password, GetUserId());
+        return success ? Ok("User registered") : BadRequest("Registration failed");
     }
-    
-    // [HttpGet("cv/{userId}")]
-    // [Authorize(Roles = "PublicFacility")]
-    // public async Task<IActionResult> GetUserCv(Guid userId)
-    // {
-    //     var supervisorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-    //
-    //     try
-    //     {
-    //         var cvData = await _context.GetUserCvForSupervisorAsync(userId, supervisorId);
-    //         return Ok(cvData);
-    //     }
-    //     catch (UnauthorizedAccessException e)
-    //     {
-    //         return Forbid(e.Message);
-    //     }
-    //     catch (InvalidOperationException e)
-    //     {
-    //         return BadRequest(new { error = e.Message });
-    //     }
-    //     catch (KeyNotFoundException e)
-    //     {
-    //         return NotFound(new { error = e.Message });
-    //     }
-    // }
-    
-    [HttpGet("applications/{userId:guid}")]
-    [Authorize(Roles = "PublicFacility")]
-    public async Task<IActionResult> GetUserApplications(Guid userId)
+
+
+    [HttpGet("company/users")]
+    public async Task<IActionResult> GetCompanyUsers()
     {
-        var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(supervisorIdClaim) || !Guid.TryParse(supervisorIdClaim, out var supervisorId))
-            return Unauthorized("Nieprawidłowy supervisor ID.");
-
-        try
-        {
-            var apps = await _context.GetUserApplicationsForSupervisorAsync(userId, supervisorId);
-            return Ok(apps);
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(e.Message);
-        }
-        catch (AuthenticationException e)
-        {
-            return Forbid(e.Message);
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, "Wystąpił błąd serwera.");
-        }
+        var users = await _context.GetUsersByCompanyIdAsync(GetUserId());
+        return Ok(users);
     }
-    
-    [HttpGet("courses/{userId:guid}")]
-    [Authorize(Roles = "PublicFacility")]
-    public async Task<IActionResult> GetUserCourses(Guid userId)
+
+    [HttpPatch("assign-supervisor")]
+    public async Task<IActionResult> AssignSupervisor(Guid userId, Guid supervisorId)
     {
-        var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(supervisorIdClaim) || !Guid.TryParse(supervisorIdClaim, out var supervisorId))
-            return Unauthorized("Nieprawidłowy supervisor ID.");
-
-        try
-        {
-            var courses = await _context.GetUserCoursesForSupervisorAsync(userId, supervisorId);
-            return Ok(courses);
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(e.Message);
-        }
-        catch (AuthenticationException e)
-        {
-            return Forbid(e.Message);
-        }
-        catch (Exception)
-        {
-            return StatusCode(500, "Wystąpił błąd serwera.");
-        }
+        var success = await _context.AssignSupervisorAsync(userId, supervisorId, GetUserId());
+        return success ? Ok("Supervisor assigned") : Forbid();
     }
-    
-    // [HttpGet("employment/{userId:guid}")]
-    // [Authorize(Roles = "PublicFacility")]
-    // public async Task<IActionResult> GetUserWorkExperiences(Guid userId)
-    // {
-    //     var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    //
-    //     if (string.IsNullOrEmpty(supervisorIdClaim) || !Guid.TryParse(supervisorIdClaim, out var supervisorId))
-    //         return Unauthorized("Nieprawidłowy supervisor ID.");
-    //
-    //     try
-    //     {
-    //         var workHistory = await _context.GetUserWorkExperiencesForSupervisorAsync(userId, supervisorId);
-    //         return Ok(workHistory);
-    //     }
-    //     catch (KeyNotFoundException e)
-    //     {
-    //         return NotFound(e.Message);
-    //     }
-    //     catch (AuthenticationException e)
-    //     {
-    //         return Forbid(e.Message);
-    //     }
-    //     catch (Exception)
-    //     {
-    //         return StatusCode(500, "Wystąpił błąd serwera.");
-    //     }
-    // }
+
+    [HttpGet("details/{userId}")]
+    public async Task<IActionResult> GetUserDetails(Guid userId)
+    {
+        var result = await _context.GetUserDetailsAsync(userId, GetUserId());
+        return result != null ? Ok(result) : Forbid();
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetCompanyStats([FromQuery] Guid? userId)
+    {
+        var stats = await _context.GetStatisticsAsync(userId, GetUserId());
+        return Ok(stats);
+    }
 }

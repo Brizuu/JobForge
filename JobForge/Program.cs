@@ -1,7 +1,6 @@
     using System.Security.Claims;
     using System.Text;
     using JobForge.Data;
-    using JobForge.Hubs;
     using JobForge.Models;
     using JobForge.Services;
     using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -32,8 +31,8 @@
     builder.Services.AddScoped<IPublicFacility, PublicFacility>();
     builder.Services.AddScoped<IInternshipService, InternshipService>();
     builder.Services.AddScoped<IGrantService, GrantService>();
-    builder.Services.AddScoped<IRaportService, RaportService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IChatService, ChatService>();
 
 
 
@@ -121,6 +120,8 @@
     app.UseAuthentication();
     app.UseAuthorization();
 
+    
+    builder.Services.AddHttpContextAccessor();
     app.MapHub<ChatHub>("/chathub");
 
 

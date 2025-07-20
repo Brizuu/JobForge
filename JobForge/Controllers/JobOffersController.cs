@@ -17,87 +17,138 @@ public class JobOffersController : ControllerBase
         _jobOfferService = jobOfferService;
     }
 
-    [HttpPost]
-    public async Task<IActionResult> CreateJobOffer([FromBody] JobOfferDto dto)
+    [HttpPost("company/create")]
+    [Authorize]
+    public async Task<IActionResult> AddJobOffer([FromBody] JobOfferDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
-        
-        Guid userId = Guid.Parse(userIdClaim.Value);
-        
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized("User ID not found in token.");
+        }
 
-        dto.UserId = userId;
-        
-        var id = await _jobOfferService.CreateJobOfferAsync(dto);
-        return CreatedAtAction(nameof(GetById), new { id }, null);
+        var success = await _jobOfferService.AddJobOfferAsync(dto, userId);
+        if (!success)
+            return BadRequest("Could not add job offer.");
+
+        return Ok("Job offer added successfully.");
     }
+    
+    [HttpPatch("company/archive/{id}")]
+    public async Task<IActionResult> ArchiveJobOffer(int id, [FromQuery] bool archive)
+    {
+        var result = await _jobOfferService.ArchiveJobOfferAsync(id, archive);
+
+        if (!result)
+            return NotFound(new { message = "Job offer not found or operation failed." });
+
+        return Ok(new { message = archive ? "Job offer archived." : "Job offer restored." });
+    }
+    
     
     [Authorize]
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpPatch("company/application/status/{applicationId}")]
+    public async Task<IActionResult> UpdateApplicationStatus(int applicationId, [FromBody] string newStatus)
     {
-        var jobOffer = await _jobOfferService.GetJobOfferByIdAsync(id);
-        if (jobOffer == null)
-            return NotFound();
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid userId))
+            return Unauthorized();
 
-        return Ok(jobOffer);
-    }
-    
-    [HttpPut("archive")]
-    public async Task<IActionResult> ArchiveJobOffer([FromBody] ArchiveJobOfferDto dto)
-    {
-        var result = await _jobOfferService.ArchiveJobOfferAsync(dto.JobOfferId, dto.IsArchived);
+        var result = await _jobOfferService.ReviewApplicationAsync(applicationId, newStatus, userId);
+
         if (!result)
-            return NotFound();
+            return Forbid("Brak dostępu lub aplikacja/oferta nie istnieje.");
 
-        return NoContent();
+        return Ok("Status aplikacji został zaktualizowany.");
     }
+
     
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteJobOffer(int id)
+    [HttpGet("company/applications/{jobOfferId}")]
+    public async Task<IActionResult> GetFullApplicationsForOffer(int jobOfferId)
     {
-        var result = await _jobOfferService.DeleteJobOfferAsync(id);
-        if (!result)
-            return NotFound();
+        
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var employerId))
+        {
+            return Unauthorized("User ID not found in token.");
+        }
+        
 
-        return NoContent();
+        var applications = await _jobOfferService.GetApplicationsWithCVsForOfferAsync(jobOfferId, employerId);
+
+        if (applications == null || applications.Count == 0)
+            return NotFound("Brak aplikacji lub nie jesteś właścicielem oferty.");
+
+        return Ok(applications);
     }
 
+
+
+
     
-    // [HttpPost("apply")]
-    // [Authorize]
-    // public async Task<IActionResult> Apply([FromBody] ApplyToJobOfferDto dto)
-    // {
-    //     var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    //
-    //     try
-    //     {
-    //         var application = await _jobOfferService.ApplyToJobOfferAsync(dto, userId);
-    //         return Ok(application);
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         return BadRequest(new { error = ex.Message });
-    //     }
-    // }
+    [HttpPost("user/apply/{id}")]
+    [Authorize]
+    public async Task<IActionResult> ApplyToJobOffer([FromRoute] int id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
+        {
+            return Unauthorized("Invalid user token.");
+        }
+
+        var (success, message) = await _jobOfferService.ApplyToJobOfferAsync(id, userId);
+
+        if (!success)
+            return BadRequest(message);
+
+        return Ok(message);
+    }
     
-    [HttpPost("addFavorites")]
+    [HttpGet("user/get-offers")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAllJobOffers()
+    {
+        var offers = await _jobOfferService.GetAllJobOffersAsync();
+        return Ok(offers);
+    }
+
+    [HttpGet("user/get-details/{id}")]
+    public async Task<IActionResult> GetJobOfferDetails(int id)
+    {
+        var offer = await _jobOfferService.GetJobOfferByIdAsync(id);
+
+        if (offer == null)
+            return NotFound();
+
+        return Ok(offer);
+    }
+    
+    [HttpPost("user/add-favourite")]
     public async Task<IActionResult> AddFavorite([FromBody] FavoriteJobOfferDto dto)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         await _jobOfferService.AddFavoriteAsync(dto.JobOfferId, userId);
         return Ok();
     }
-
-    [HttpGet("getFavorites")]
+    
+    [HttpGet("user/get-favourites")]
     public async Task<IActionResult> GetFavorites()
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var favorites = await _jobOfferService.GetFavoritesByUserAsync(userId);
         return Ok(favorites);
+    }
+    
+    [HttpGet("user/my-applications")]
+    [Authorize]
+    public async Task<IActionResult> GetMyApplications()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var applications = await _jobOfferService.GetUserJobApplicationsAsync(userId);
+        return Ok(applications);
     }
 
 

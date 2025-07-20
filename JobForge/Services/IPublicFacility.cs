@@ -6,11 +6,9 @@ namespace JobForge.Services;
 
 public interface IPublicFacility
 {
-    Task<(bool Success, IEnumerable<string> Errors)> RegisterWithSupervisorAsync(RegisterDto dto, ClaimsPrincipal supervisorPrincipal);
-    // Task<object> GetUserCvForSupervisorAsync(Guid userId, Guid supervisorId);
-    Task<IEnumerable<JobApplication>> GetUserApplicationsForSupervisorAsync(Guid userId, Guid supervisorId);
-    
-    Task<IEnumerable<UserCourse>> GetUserCoursesForSupervisorAsync(Guid userId, Guid supervisorId);
-    
-    // Task<IEnumerable<WorkExperience>> GetUserWorkExperiencesForSupervisorAsync(Guid userId, Guid supervisorId);
+    Task<bool> RegisterUserAsync(ApplicationUser user, string password, Guid creatorId);
+    Task<List<object>> GetUsersByCompanyIdAsync(Guid creatorId);
+    Task<bool> AssignSupervisorAsync(Guid userId, Guid supervisorId, Guid executorId);
+    Task<object?> GetUserDetailsAsync(Guid userId, Guid executorId);
+    Task<object> GetStatisticsAsync(Guid? userId, Guid executorId);
 }

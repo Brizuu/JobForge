@@ -45,6 +45,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Internship> Internships { get; set; }
     public DbSet<InternshipApplication> InternshipApplications { get; set; }
     
+    public DbSet<InternshipLocation> InternshipLocations { get; set; }
+    
     public DbSet<Grant> Grants { get; set; }
     public DbSet<GrantApplication> GrantApplications { get; set; }
 
@@ -120,46 +122,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .WithOne(e => e.CV)
             .HasForeignKey(e => e.GeneratedCVId)
             .OnDelete(DeleteBehavior.Cascade);
-        // modelBuilder.Entity<PersonalInformation>(entity =>
-        // {
-        //     entity.HasKey(e => e.Id);
-        //
-        //     entity.Property(e => e.TechnicalSkills)
-        //         .HasConversion(
-        //             v => string.Join(';', v),
-        //             v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList());
-        //
-        //     entity.Property(e => e.SoftSkills)
-        //         .HasConversion(
-        //             v => string.Join(';', v),
-        //             v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList());
-        //
-        //     entity.Property(e => e.Interests)
-        //         .HasConversion(
-        //             v => string.Join(';', v),
-        //             v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList());
-        //
-        //     entity.Property(e => e.Certificates)
-        //         .HasConversion(
-        //             v => string.Join(';', v),
-        //             v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList());
-        //
-        //     entity.Property(e => e.Courses)
-        //         .HasConversion(
-        //             v => string.Join(';', v),
-        //             v => v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList());
-        //
-        //     entity.HasMany(e => e.WorkExperiences)
-        //         .WithOne(w => w.PersonalInformation)
-        //         .HasForeignKey(w => w.PersonalInformationId);
-        //
-        //     entity.HasMany(e => e.Educations)
-        //         .WithOne(ed => ed.PersonalInformation)
-        //         .HasForeignKey(ed => ed.PersonalInformationId);
-        //
-        //     entity.HasMany(e => e.Languages)
-        //         .WithOne(l => l.PersonalInformation)
-        //         .HasForeignKey(l => l.PersonalInformationId);
-        // });
+       
     }
 }

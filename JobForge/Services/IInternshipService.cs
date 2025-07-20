@@ -5,17 +5,16 @@ namespace JobForge.Services;
 
 public interface IInternshipService
 {
-    Task<IntershipDto> CreateInternshipAsync(IntershipDto internshipDto, Guid authorId);
-    Task<bool> DeleteInternshipAsync(Guid internshipId);
-
-    Task<IntershipDto?> GetInternshipByIdAsync(Guid id);
-    Task<List<IntershipDto>> GetAllInternshipsAsync();
-    // Task<IEnumerable<InternshipApplicationDto>> GetAllApplicationsAsync();
-    Task<IEnumerable<InternshipApplication>> GetApplicationsAsync(Guid? internshipId = null);
-
-    
-    Task<InternshipApplicationDto> CreateApplicationAsync(InternshipApplicationDto applicationDto, Guid userId);
-    Task<bool> DeleteApplicationAsync(Guid applicationId);
+    Task<Guid> CreateInternshipAsync(InternshipDto dto, Guid authorId);
+    Task<bool> UpdateInternshipAsync(Guid id, InternshipDto dto, Guid authorId);
+    Task<bool> ToggleArchiveStatusAsync(Guid id, Guid authorId);
+    Task<List<Internship>> GetInternshipsByAuthorAsync(Guid authorId);
+    Task<List<InternshipApplication>> GetApplicationsForInternshipAsync(Guid internshipId, Guid authorId);
+    Task<bool> ReviewInternshipApplicationAsync(Guid applicationId, string status, Guid reviewerId);
+    Task<bool> ApplyForInternshipAsync(InternshipApplicationDto dto, Guid userId);
+    Task<List<InternshipApplication>> GetUserInternshipApplicationsAsync(Guid userId);
+    Task<List<Internship>> GetAllAvailableInternshipsAsync();
+    Task<Internship> GetInternshipDetailsAsync(Guid id);
    
     
 
