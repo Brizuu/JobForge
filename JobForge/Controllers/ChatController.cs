@@ -23,12 +23,15 @@ public class ChatController : ControllerBase
         return Guid.Parse(userIdString!);
     }
 
-    [HttpGet("{userId}")]
-    public async Task<ActionResult<List<ContactDto>>> GetContacts(Guid userId)
+    [HttpGet("contacts")]
+    public async Task<ActionResult<List<ContactDto>>> GetContacts()
     {
-        var contacts = await _chatService.GetContactsAsync(userId);
+        var currentUserId = GetUserId();
+    
+        var contacts = await _chatService.GetContactsAsync(currentUserId);
         return Ok(contacts);
     }
+
     
     
     [HttpGet("history/{otherUserId}")]
