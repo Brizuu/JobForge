@@ -29,6 +29,39 @@ public class ChatService : IChatService
         _context.ChatMessages.Add(entity);
         await _context.SaveChangesAsync();
     }
+    
+    public async Task AddContactIfNotExistsAsync(Guid userId, Guid contactId)
+    {
+        if (userId == contactId)
+            return;
+
+        var exists = await _context.Contacts
+            .AnyAsync(c => c.UserId == userId && c.ContactId == contactId);
+
+        if (!exists)
+        {
+            _context.Contacts.Add(new Contact
+            {
+                UserId = userId,
+                ContactId = contactId
+            });
+
+            await _context.SaveChangesAsync();
+        }
+    }
+    
+    public async Task<List<ContactDto>> GetContactsAsync(Guid userId)
+    {
+        return await _context.Contacts
+            .Where(c => c.UserId == userId)
+            .Select(c => new ContactDto
+            {
+                UserId = c.UserId,
+                ContactId = c.ContactId
+            })
+            .ToListAsync();
+    }
+
 
     public async Task<List<ChatMessageDto>> GetMessageHistoryAsync(Guid userId1, Guid userId2)
     {

@@ -184,6 +184,23 @@ namespace JobForge.Migrations
                     b.ToTable("ChatUserLinks");
                 });
 
+            modelBuilder.Entity("JobForge.Models.Contact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Contacts");
+                });
+
             modelBuilder.Entity("JobForge.Models.Course", b =>
                 {
                     b.Property<Guid>("Id")

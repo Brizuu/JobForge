@@ -49,6 +49,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     
     public DbSet<Grant> Grants { get; set; }
     public DbSet<GrantApplication> GrantApplications { get; set; }
+    
+    public DbSet<Contact> Contacts { get; set; }
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

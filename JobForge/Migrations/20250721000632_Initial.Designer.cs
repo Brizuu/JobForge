@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JobForge.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250720225156_Initial")]
+    [Migration("20250721000632_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -185,6 +185,23 @@ namespace JobForge.Migrations
                         .IsUnique();
 
                     b.ToTable("ChatUserLinks");
+                });
+
+            modelBuilder.Entity("JobForge.Models.Contact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Contacts");
                 });
 
             modelBuilder.Entity("JobForge.Models.Course", b =>

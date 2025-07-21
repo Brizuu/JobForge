@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using JobForge.DbModels;
 using JobForge.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,14 @@ public class ChatController : ControllerBase
         return Guid.Parse(userIdString!);
     }
 
-    // GET api/chat/history/{otherUserId}
+    [HttpGet("{userId}")]
+    public async Task<ActionResult<List<ContactDto>>> GetContacts(Guid userId)
+    {
+        var contacts = await _chatService.GetContactsAsync(userId);
+        return Ok(contacts);
+    }
+    
+    
     [HttpGet("history/{otherUserId}")]
     public async Task<IActionResult> GetHistory(Guid otherUserId)
     {

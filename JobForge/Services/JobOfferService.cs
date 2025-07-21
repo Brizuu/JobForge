@@ -9,10 +9,12 @@ namespace JobForge.Services;
 public class JobOfferService : IJobOfferService
 {
     private readonly AppDbContext _context;
+    private readonly IChatService _chatService;
 
-    public JobOfferService(AppDbContext context)
+    public JobOfferService(AppDbContext context, IChatService chatService)
     {
         _context = context;
+        _chatService = chatService;
     }
 
     public async Task<bool> AddJobOfferAsync(JobOfferDto dto, Guid userId)
@@ -176,74 +178,17 @@ public class JobOfferService : IJobOfferService
         };
 
         _context.JobApplications.Add(application);
+        
+        var employerId = jobOffer.UserId;
+        if (employerId != userId) 
+        {
+            await _chatService.AddContactIfNotExistsAsync(employerId, userId);
+        }
+        
         await _context.SaveChangesAsync();
-
+        
         return (true, "Application submitted successfully.");
     }
-
-
-
-    
-    // public async Task<bool> ArchiveJobOfferAsync(int jobOfferId, bool isArchived)
-    // {
-    //     var jobOffer = await _context.JobOffers.FindAsync(jobOfferId);
-    //     if (jobOffer == null)
-    //         return false;
-    //
-    //     jobOffer.IsArchived = isArchived;
-    //     await _context.SaveChangesAsync();
-    //     return true;
-    // }
-
-    
-    // public async Task<bool> DeleteJobOfferAsync(int jobOfferId)
-    // {
-    //     var jobOffer = await _context.JobOffers
-    //         .Include(j => j.Technologies)
-    //         .FirstOrDefaultAsync(j => j.Id == jobOfferId);
-    //
-    //     if (jobOffer == null)
-    //         return false;
-    //
-    //     // Usuń technologie powiązane (jeśli brak kaskady)
-    //     _context.JobOfferTechnologies.RemoveRange(jobOffer.Technologies);
-    //
-    //     // Usuń ogłoszenie
-    //     _context.JobOffers.Remove(jobOffer);
-    //
-    //     await _context.SaveChangesAsync();
-    //     return true;
-    // }
-
-    
-    // public async Task<JobApplication> ApplyToJobOfferAsync(ApplyToJobOfferDto dto, Guid userId)
-    // {
-    //     var offer = await _context.JobOffers.FindAsync(dto.JobOfferId);
-    //     if (offer == null)
-    //         throw new Exception("Job offer not found.");
-    //
-    //     var cv = await _context.GeneratedCVs.FindAsync(dto.CvId);
-    //     if (cv == null || cv.UserId != userId)
-    //         throw new Exception("Invalid CV.");
-    //
-    //     var deserializedCv = JsonSerializer.Deserialize<object>(cv.ContentJson);
-    //
-    //     var application = new JobApplication
-    //     {
-    //         JobOfferId = dto.JobOfferId,
-    //         CvId = dto.CvId,
-    //         UserId = userId,
-    //         AppliedAt = DateTime.UtcNow,
-    //         Status = "Pending",
-    //         JobOffer = offer,
-    //         DeserializedCv = deserializedCv
-    //     };
-    //
-    //     _context.JobApplications.Add(application);
-    //     await _context.SaveChangesAsync();
-    //
-    //     return application;
-    // }
 
     public async Task AddFavoriteAsync(int jobOfferId, Guid userId)
     {
@@ -325,6 +270,12 @@ public class JobOfferService : IJobOfferService
 
         application.Status = newStatus;
         await _context.SaveChangesAsync();
+        
+        if (newStatus == "Accepted")
+        {
+            await _chatService.AddContactIfNotExistsAsync(application.UserId, jobOffer.UserId);
+        }
+        
         return true;
     }
 
